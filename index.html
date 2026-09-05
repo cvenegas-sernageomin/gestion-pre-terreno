@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<!--
+  SOLICITUD DE CAMIONETA — PWA SERNAGEOMIN
+  Antes de usar en producción, editar en el bloque <script> más abajo (buscar "TODO usuario"):
+
+  1. SHEET_CSV_URL: crear una Google Sheet con columnas
+     fecha_inicio, fecha_fin, patente, conductor, estado (una fila por reserva confirmada).
+     Archivo > Compartir > Publicar en la web > elegir la hoja > formato CSV > Publicar.
+     Pegar la URL resultante en SHEET_CSV_URL. Es de solo lectura informativa: el encargado
+     de flota sigue confirmando reservas y actualizando la planilla a mano, igual que hoy.
+
+  2. ENCARGADO_FLOTA_EMAIL: correo real del encargado de flota.
+
+  3. CONDUCTORES y PATENTES: nómina real de conductores y parque vehicular real.
+
+  4. Datos organizacionales por defecto (centro de costo, región, jefe de programa): casi no
+     cambian, pero se pueden editar cada vez en el propio formulario si hace falta.
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Solicitud de Camioneta</title>
+<meta name="theme-color" content="#c66b21">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  :root{ --nar:#c66b21; --nar-osc:#96501a; --gris:#f3f5f7; --borde:#d7dde3; --ok:#2e7d46; --warn:#b5651d; --err:#c0392b; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--gris);color:#222;}
+  header{background:var(--nar);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px;}
+  header h1{font-size:17px;margin:0;font-weight:600;}
+  header .ver{font-size:11px;opacity:.75;margin-left:auto;}
+  main{max-width:680px;margin:0 auto;padding:16px;}
+  .card{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:16px;margin-bottom:14px;}
+  .card h2{font-size:14px;margin:0 0 10px;color:var(--nar-osc);}
+  label{display:block;font-size:13px;margin:10px 0 4px;color:#444;}
+  input[type=text],input[type=date],input[type=number],select,textarea{
+    width:100%;padding:8px;border:1px solid var(--borde);border-radius:6px;font-size:14px;font-family:inherit;background:#fff;}
+  textarea{resize:vertical;min-height:56px;}
+  input[readonly]{background:#f0f2f4;color:#666;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+  .fila-vehiculo{border:1px solid var(--borde);border-radius:8px;padding:10px;margin-top:10px;position:relative;background:#fbfbfb;}
+  .fila-vehiculo .num{font-size:12px;color:#888;font-weight:600;}
+  .fila-vehiculo .quitar{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--err);
+    cursor:pointer;font-size:13px;}
+  .btn{display:inline-block;background:var(--nar);color:#fff;border:none;border-radius:8px;padding:11px 18px;
+    font-size:14px;font-weight:600;cursor:pointer;text-align:center;}
+  .btn:active{background:var(--nar-osc);}
+  .btn.secundario{background:#fff;color:var(--nar);border:1px solid var(--nar);}
+  .btn[disabled]{opacity:.5;cursor:default;}
+  .fila-botones{display:flex;gap:8px;flex-wrap:wrap;}
+  .error{color:var(--err);font-size:13px;margin-top:8px;min-height:16px;}
+  .aviso{font-size:13px;margin-top:8px;color:#555;}
+  .aviso.warn{color:var(--warn);background:#fbe9d9;border-radius:6px;padding:8px;}
+  .reserva-item{border-bottom:1px solid var(--borde);padding:6px 0;font-size:13px;}
+  .reserva-item:last-child{border-bottom:none;}
+  .reserva-item .muted{color:#888;margin-left:6px;}
+  .reserva-item .pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;
+    background:#eee;color:#555;margin-left:6px;}
+  .nota{font-size:13px;color:#888;}
+  footer{max-width:680px;margin:0 auto;padding:0 16px 30px;font-size:12px;color:#888;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚙 Solicitud de Camioneta</h1>
+  <span class="ver">v1</span>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>1. Datos generales</h2>
+    <div class="grid2">
+      <div>
+        <label for="fFechaSolicitud">Fecha de solicitud</label>
+        <input type="text" id="fFechaSolicitud" readonly>
+      </div>
+      <div>
+        <label for="fCentroCosto">Centro de costo</label>
+        <input type="text" id="fCentroCosto">
+      </div>
+      <div>
+        <label for="fRegionInst">Región</label>
+        <input type="text" id="fRegionInst">
+      </div>
+      <div>
+        <label for="fJefeCC">Jefa/e del centro de costo</label>
+        <input type="text" id="fJefeCC">
+      </div>
+      <div>
+        <label for="fJefePrograma">Jefe de programa</label>
+        <input type="text" id="fJefePrograma">
+      </div>
+      <div>
+        <label for="fDepto">Depto/Unidad</label>
+        <input type="text" id="fDepto">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. Cometido</h2>
+    <label for="fObjetivo">Objetivo del cometido</label>
+    <textarea id="fObjetivo" placeholder="Ej: Levantamiento geológico Central Los Cipreses"></textarea>
+    <label for="fRegionLoc">Región - localidades (terreno)</label>
+    <input type="text" id="fRegionLoc" placeholder="Ej: Maule, Los Álamos, Armerillo">
+    <div class="grid2">
+      <div>
+        <label for="fFechaInicio">Fecha inicio cometido</label>
+        <input type="date" id="fFechaInicio">
+      </div>
+      <div>
+        <label for="fFechaTermino">Fecha término cometido</label>
+        <input type="date" id="fFechaTermino">
+      </div>
+      <div>
+        <label for="fCarroArrastre">¿Carro de arrastre?</label>
+        <select id="fCarroArrastre"><option>No</option><option>Sí</option></select>
+      </div>
+      <div>
+        <label for="fAltura">¿Sobre altura geográfica?</label>
+        <select id="fAltura"><option>No</option><option>Sí</option></select>
+      </div>
+    </div>
+    <label for="fPermisoCirc">Fecha permiso de circulación (si aplica)</label>
+    <input type="text" id="fPermisoCirc" placeholder="Ej: 22-23-29-30 noviembre, o «NO»">
+  </div>
+
+  <div class="card">
+    <h2>3. Profesionales, conductores y camionetas</h2>
+    <div id="filasVehiculos"></div>
+    <div class="fila-botones" style="margin-top:10px;">
+      <button class="btn secundario" id="btnAgregarFila" type="button">+ Agregar otro conductor/camioneta</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>4. Observaciones</h2>
+    <textarea id="fObservacion" placeholder="Opcional"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>Calendario compartido (informativo)</h2>
+    <div class="aviso" id="estadoReservas"></div>
+    <div id="listaReservas"></div>
+    <div class="aviso warn" id="avisoSolape" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <h2>5. Enviar</h2>
+    <div class="error" id="erroresForm"></div>
+    <div class="fila-botones">
+      <button class="btn" id="btnGenerarExcel" type="button" disabled>1. Generar planilla (.xlsx)</button>
+      <button class="btn secundario" id="btnAbrirCorreo" type="button" disabled>2. Abrir correo</button>
+    </div>
+    <div class="aviso" id="avisoExcel"></div>
+  </div>
+
+</main>
+
+<footer>
+  El botón 1 descarga la planilla oficial ya rellenada. El botón 2 abre tu cliente de correo con
+  el resumen de la solicitud — recuerda ADJUNTAR el archivo descargado antes de enviar (los
+  navegadores no permiten adjuntar archivos automáticamente por seguridad).
+</footer>
+
+<script src="vendor/jszip.min.js"></script>
+<script>
+// ============================================================
+// Configuración — TODO usuario: reemplazar por los datos reales.
+// ============================================================
+const ENCARGADO_FLOTA_EMAIL = 'encargado.flota@sernageomin.cl'; // TODO usuario: correo real
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/PLACEHOLDER/pub?output=csv'; // TODO usuario
+
+const CENTRO_COSTO_DEFECTO = '8003';
+const REGION_INST_DEFECTO = 'Metropolitana';
+const JEFE_CC_DEFECTO = 'Omar Cortés';
+const JEFE_PROGRAMA_DEFECTO = 'Omar Cortés';
+const DEPTO_DEFECTO = 'Geología General';
+
+// TODO usuario: reemplazar por la nómina real de conductores de la flota.
+const CONDUCTORES = ['Juan Pérez', 'María Soto', 'Pedro Rojas'];
+
+// TODO usuario: reemplazar por el parque vehicular real (patente + vehículo + origen).
+const PATENTES = [
+  { patente: 'ABCD12', vehiculo: 'Camioneta Hilux', origen: 'Santiago' },
+  { patente: 'EFGH34', vehiculo: 'Camioneta Ranger', origen: 'Santiago' },
+  { patente: 'IJKL56', vehiculo: 'Camioneta D-Max', origen: 'Metropolitana' },
+];
+
+const MAX_FILAS = 4; // filas disponibles en la plantilla oficial
+
+// ============================================================
+// Utilidades
+// ============================================================
+function escXml(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function hoyISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function formatearFechaDMY(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}-${m}-${y}`;
+}
+
+// ============================================================
+// Filas dinámicas de profesional/conductor/patente
+// ============================================================
+const contFilas = document.getElementById('filasVehiculos');
+let numFilas = 0;
+
+function poblarSelectConductor(sel) {
+  sel.innerHTML = '<option value="">Elegir conductor…</option>' +
+    CONDUCTORES.map(c => `<option value="${escXml(c)}">${escXml(c)}</option>`).join('');
+}
+function poblarSelectPatente(sel) {
+  sel.innerHTML = '<option value="">Elegir patente…</option>' +
+    PATENTES.map(p => `<option value="${escXml(p.patente)}">${escXml(p.patente)} — ${escXml(p.vehiculo)}</option>`).join('');
+}
+
+function agregarFila() {
+  if (numFilas >= MAX_FILAS) return;
+  numFilas++;
+  const idx = numFilas;
+  const div = document.createElement('div');
+  div.className = 'fila-vehiculo';
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <span class="num">Camioneta ${idx}</span>
+    ${idx > 1 ? '<button type="button" class="quitar">✕ quitar</button>' : ''}
+    <label>Profesional en terreno</label>
+    <input type="text" class="fProfesional" placeholder="Nombre del profesional">
+    <div class="grid2">
+      <div>
+        <label>Conductor</label>
+        <select class="fConductor"></select>
+      </div>
+      <div>
+        <label>Patente</label>
+        <select class="fPatente"></select>
+      </div>
+    </div>
+    <label>Origen de la camioneta</label>
+    <input type="text" class="fOrigen" placeholder="Ej: Santiago">
+  `;
+  contFilas.appendChild(div);
+  poblarSelectConductor(div.querySelector('.fConductor'));
+  poblarSelectPatente(div.querySelector('.fPatente'));
+
+  div.querySelector('.fPatente').addEventListener('change', (e) => {
+    const p = PATENTES.find(x => x.patente === e.target.value);
+    if (p) div.querySelector('.fOrigen').value = p.origen;
+    validarFormulario();
+    revisarSolapes();
+  });
+  div.querySelectorAll('input,select').forEach(el => el.addEventListener('input', validarFormulario));
+  div.querySelectorAll('input,select').forEach(el => el.addEventListener('change', () => { validarFormulario(); revisarSolapes(); }));
+  const btnQuitar = div.querySelector('.quitar');
+  if (btnQuitar) btnQuitar.addEventListener('click', () => { div.remove(); renumerarFilas(); validarFormulario(); });
+
+  document.getElementById('btnAgregarFila').disabled = numFilas >= MAX_FILAS;
+}
+
+function renumerarFilas() {
+  numFilas = 0;
+  contFilas.querySelectorAll('.fila-vehiculo').forEach((div) => {
+    numFilas++;
+    div.dataset.idx = numFilas;
+    div.querySelector('.num').textContent = `Camioneta ${numFilas}`;
+  });
+  document.getElementById('btnAgregarFila').disabled = numFilas >= MAX_FILAS;
+}
+
+document.getElementById('btnAgregarFila').addEventListener('click', agregarFila);
+agregarFila(); // primera fila siempre presente
+
+// ============================================================
+// Recolección y validación
+// ============================================================
+function recolectarFilas() {
+  return Array.from(contFilas.querySelectorAll('.fila-vehiculo')).map(div => ({
+    profesional: div.querySelector('.fProfesional').value.trim(),
+    conductor: div.querySelector('.fConductor').value,
+    patente: div.querySelector('.fPatente').value,
+    origen: div.querySelector('.fOrigen').value.trim(),
+  }));
+}
+
+function recolectarDatos() {
+  const v = id => document.getElementById(id).value.trim();
+  return {
+    fechaSolicitud: hoyISO(),
+    centroCosto: v('fCentroCosto'),
+    regionInst: v('fRegionInst'),
+    jefeCC: v('fJefeCC'),
+    jefePrograma: v('fJefePrograma'),
+    depto: v('fDepto'),
+    objetivo: v('fObjetivo'),
+    regionLocalidades: v('fRegionLoc'),
+    fechaInicio: v('fFechaInicio'),
+    fechaTermino: v('fFechaTermino'),
+    carroArrastre: document.getElementById('fCarroArrastre').value,
+    alturaGeografica: document.getElementById('fAltura').value,
+    permisoCirculacion: v('fPermisoCirc'),
+    observacion: v('fObservacion'),
+    filas: recolectarFilas().filter(f => f.profesional || f.conductor || f.patente),
+  };
+}
+
+function validarFormulario() {
+  const errores = [];
+  const d = recolectarDatos();
+
+  if (!d.centroCosto) errores.push('Falta el centro de costo.');
+  if (!d.objetivo) errores.push('Falta el objetivo del cometido.');
+  if (!d.regionLocalidades) errores.push('Falta región/localidades de terreno.');
+  if (!d.fechaInicio || !d.fechaTermino) errores.push('Faltan las fechas de inicio/término del cometido.');
+  if (d.fechaInicio && d.fechaTermino && d.fechaTermino < d.fechaInicio) {
+    errores.push('La fecha de término es anterior a la de inicio.');
+  }
+  if (d.filas.length === 0) {
+    errores.push('Agrega al menos un profesional, conductor y patente.');
+  } else {
+    d.filas.forEach((f, i) => {
+      if (!f.profesional || !f.conductor || !f.patente) {
+        errores.push(`Falta completar profesional/conductor/patente en la camioneta ${i + 1}.`);
+      }
+    });
+  }
+
+  document.getElementById('erroresForm').textContent = errores[0] || '';
+  document.getElementById('btnGenerarExcel').disabled = errores.length > 0;
+  return errores.length === 0;
+}
+
+[
+  'fCentroCosto','fRegionInst','fJefeCC','fJefePrograma','fDepto','fObjetivo','fRegionLoc',
+  'fFechaInicio','fFechaTermino','fCarroArrastre','fAltura','fPermisoCirc','fObservacion',
+].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', validarFormulario);
+  el.addEventListener('change', validarFormulario);
+});
+document.getElementById('fFechaInicio').addEventListener('change', revisarSolapes);
+document.getElementById('fFechaTermino').addEventListener('change', revisarSolapes);
+
+// ============================================================
+// Generación del .xlsx oficial (plantilla + tokens, vía JSZip)
+// Ver memoria: reference-excel-membrete-tokens-jszip-navegador
+// ============================================================
+function construirReemplazos(d) {
+  const rep = {};
+  rep.CENTRO_COSTO = d.centroCosto;
+  rep.REGION_INST = d.regionInst;
+  rep.FECHA_SOLICITUD = formatearFechaDMY(d.fechaSolicitud);
+  rep.JEFE_CC = d.jefeCC;
+  rep.JEFE_PROGRAMA = d.jefePrograma;
+  rep.DEPTO = d.depto;
+  rep.OBJETIVO = d.objetivo;
+  rep.CANT_CAM = String(d.filas.length);
+  rep.CARRO_ARRASTRE = d.carroArrastre;
+  rep.REGION_LOC = d.regionLocalidades;
+  rep.ALTURA_SI = d.alturaGeografica === 'Sí' ? 'x' : '';
+  rep.ALTURA_NO = d.alturaGeografica === 'Sí' ? '' : 'x';
+  rep.PERMISO_CIRC = d.permisoCirculacion;
+  rep.OBSERVACION = d.observacion;
+
+  const fi = formatearFechaDMY(d.fechaInicio);
+  const ft = formatearFechaDMY(d.fechaTermino);
+
+  for (let i = 1; i <= MAX_FILAS; i++) {
+    const f = d.filas[i - 1];
+    rep[`PROF_${i}`] = f ? f.profesional : '';
+    rep[`COND_${i}`] = f ? f.conductor : '';
+    rep[`PAT_${i}`] = f ? f.patente : '';
+    rep[`ORIG_${i}`] = f ? f.origen : '';
+    rep[`FI_PROF_${i}`] = f ? fi : '';
+    rep[`FT_PROF_${i}`] = f ? ft : '';
+    rep[`NOM_PROF_${i}`] = f ? f.profesional : '';
+    rep[`FI_COND_${i}`] = f ? fi : '';
+    rep[`FT_COND_${i}`] = f ? ft : '';
+    rep[`NOM_COND_${i}`] = f ? f.conductor : '';
+  }
+  return rep;
+}
+
+async function generarExcel(d) {
+  const resp = await fetch('assets/plantilla_solicitud.xlsx');
+  if (!resp.ok) throw new Error('No se pudo cargar la plantilla (assets/plantilla_solicitud.xlsx).');
+  const bytes = await resp.arrayBuffer();
+  const zip = await JSZip.loadAsync(bytes);
+  const rep = construirReemplazos(d);
+
+  const sheetPaths = Object.keys(zip.files).filter(p => /^xl\/worksheets\/sheet\d+\.xml$/.test(p));
+  for (const p of sheetPaths) {
+    let xml = await zip.file(p).async('string');
+    xml = xml.replace(/@@([A-Za-z0-9_]+)@@/g, (m, tok) => (tok in rep) ? escXml(rep[tok]) : '');
+    zip.file(p, xml);
+  }
+
+  return zip.generateAsync({
+    type: 'blob', compression: 'DEFLATE',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+}
+
+let nombreArchivoGenerado = '';
+
+document.getElementById('btnGenerarExcel').addEventListener('click', async () => {
+  if (!validarFormulario()) return;
+  const d = recolectarDatos();
+  const avisoExcel = document.getElementById('avisoExcel');
+  avisoExcel.textContent = 'Generando planilla…';
+  try {
+    const blob = await generarExcel(d);
+    nombreArchivoGenerado = `Solicitud camioneta ${d.fechaInicio}_a_${d.fechaTermino}.xlsx`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombreArchivoGenerado;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    avisoExcel.textContent = `Planilla descargada: ${nombreArchivoGenerado}. Ahora abre el correo y adjúntala antes de enviar.`;
+    document.getElementById('btnAbrirCorreo').disabled = false;
+  } catch (e) {
+    avisoExcel.textContent = 'No se pudo generar la planilla: ' + e.message;
+  }
+});
+
+// ============================================================
+// Correo (mailto) — no puede adjuntar archivos automáticamente,
+// así que el cuerpo recuerda adjuntar la planilla ya descargada.
+// ============================================================
+function construirMailto(d) {
+  const principal = d.filas[0] || {};
+  const asunto = `Solicitud de camioneta — ${principal.profesional || d.jefeCC} — ${d.fechaInicio}`;
+  const cuerpo = [
+    'Solicitud de camioneta y conductor (SERNAGEOMIN)', '',
+    `IMPORTANTE: adjuntar el archivo ${nombreArchivoGenerado || '(descargado en el paso 1)'} antes de enviar.`, '',
+    `Objetivo / cometido: ${d.objetivo}`,
+    `Región - localidades: ${d.regionLocalidades}`,
+    `Fecha inicio: ${d.fechaInicio}   Fecha término: ${d.fechaTermino}`,
+    `Cantidad de camionetas: ${d.filas.length}`,
+    ...d.filas.map((f, i) => `  ${i + 1}. Profesional: ${f.profesional} — Conductor: ${f.conductor} — Patente: ${f.patente} (${f.origen})`),
+    `Carro de arrastre: ${d.carroArrastre}`,
+    `¿Sobre altura geográfica?: ${d.alturaGeografica}`,
+    `Permiso de circulación: ${d.permisoCirculacion || '(no indicado)'}`,
+    `Observaciones: ${d.observacion || '(sin observaciones)'}`,
+    '', 'Enviado desde la PWA Solicitud de Camioneta (SERNAGEOMIN).',
+  ].join('\r\n');
+  return `mailto:${ENCARGADO_FLOTA_EMAIL}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+}
+
+document.getElementById('btnAbrirCorreo').addEventListener('click', () => {
+  const d = recolectarDatos();
+  window.location.href = construirMailto(d);
+});
+
+// ============================================================
+// Calendario compartido (CSV de solo lectura, informativo)
+// ============================================================
+let reservasCache = [];
+
+function parsearCSV(texto) {
+  const lineas = texto.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
+  if (lineas.length < 2) return [];
+  const encabezados = lineas[0].split(',').map(h => h.trim().toLowerCase());
+  return lineas.slice(1).map(linea => {
+    const campos = linea.split(',');
+    const fila = {};
+    encabezados.forEach((h, i) => fila[h] = (campos[i] || '').trim());
+    return fila;
+  });
+}
+
+function parsearFechaFlexible(s) {
+  if (!s) return null;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  m = s.match(/^(\d{2})[-/](\d{2})[-/](\d{4})/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+async function cargarReservas() {
+  const estadoEl = document.getElementById('estadoReservas');
+  const listaEl = document.getElementById('listaReservas');
+  estadoEl.textContent = 'Cargando calendario compartido…';
+  try {
+    const resp = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const texto = await resp.text();
+    reservasCache = parsearCSV(texto);
+
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const proximas = reservasCache
+      .filter(r => {
+        const fin = parsearFechaFlexible(r.fecha_fin || r.fecha_inicio);
+        return fin && fin >= hoy;
+      })
+      .sort((a, b) => (parsearFechaFlexible(a.fecha_inicio) || 0) - (parsearFechaFlexible(b.fecha_inicio) || 0));
+
+    if (proximas.length === 0) {
+      listaEl.innerHTML = '<div class="nota">No hay reservas próximas registradas.</div>';
+    } else {
+      listaEl.innerHTML = proximas.map(r => `
+        <div class="reserva-item">
+          <b>${escXml(r.patente || '—')}</b> · ${escXml(r.conductor || '—')}
+          <span class="muted">${escXml(r.fecha_inicio || '?')} → ${escXml(r.fecha_fin || '?')}</span>
+          <span class="pill">${escXml(r.estado || 'reservado')}</span>
+        </div>`).join('');
+    }
+    estadoEl.textContent = '';
+  } catch (e) {
+    reservasCache = [];
+    estadoEl.textContent = 'No se pudo cargar el calendario compartido (revisa conexión o que la URL del Sheet ya esté publicada). Puedes seguir completando la solicitud igual — el encargado de flota confirmará disponibilidad.';
+    document.getElementById('listaReservas').innerHTML = '';
+  }
+}
+window.addEventListener('load', cargarReservas);
+
+function revisarSolapes() {
+  const aviso = document.getElementById('avisoSolape');
+  const fi = parsearFechaFlexible(document.getElementById('fFechaInicio').value);
+  const ft = parsearFechaFlexible(document.getElementById('fFechaTermino').value);
+  const patentesElegidas = recolectarFilas().map(f => f.patente).filter(Boolean);
+  if (!fi || !ft || patentesElegidas.length === 0 || reservasCache.length === 0) {
+    aviso.style.display = 'none';
+    return;
+  }
+  const choques = reservasCache.filter(r => {
+    if (!patentesElegidas.includes(r.patente)) return false;
+    const rIni = parsearFechaFlexible(r.fecha_inicio);
+    const rFin = parsearFechaFlexible(r.fecha_fin || r.fecha_inicio);
+    if (!rIni || !rFin) return false;
+    return fi <= rFin && ft >= rIni;
+  });
+  if (choques.length > 0) {
+    aviso.textContent = `⚠ Aviso: ${choques.map(c => c.patente).join(', ')} ya tiene reservas que se solapan con estas fechas según el calendario compartido. Puedes enviar igual — el encargado de flota confirmará disponibilidad real.`;
+    aviso.style.display = 'block';
+  } else {
+    aviso.style.display = 'none';
+  }
+}
+
+// ============================================================
+// Valores por defecto y arranque
+// ============================================================
+document.getElementById('fFechaSolicitud').value = formatearFechaDMY(hoyISO());
+document.getElementById('fCentroCosto').value = CENTRO_COSTO_DEFECTO;
+document.getElementById('fRegionInst').value = REGION_INST_DEFECTO;
+document.getElementById('fJefeCC').value = JEFE_CC_DEFECTO;
+document.getElementById('fJefePrograma').value = JEFE_PROGRAMA_DEFECTO;
+document.getElementById('fDepto').value = DEPTO_DEFECTO;
+validarFormulario();
+
+// ============================================================
+// PWA: registro del service worker
+// ============================================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
