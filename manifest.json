@@ -1,7 +1,7 @@
 {
-  "name": "Solicitud de Camioneta — SERNAGEOMIN",
-  "short_name": "Camioneta",
-  "description": "Formulario para solicitar camioneta y conductor a la flota, con vista informativa de reservas ya confirmadas.",
+  "name": "Terreno SERNAGEOMIN",
+  "short_name": "Terreno",
+  "description": "Solicitud de camioneta y conductor, y Ficha para cometidos funcionarios, con las planillas oficiales ya rellenadas.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

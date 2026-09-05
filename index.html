@@ -15,12 +15,15 @@
 
   4. Datos organizacionales por defecto (centro de costo, región, jefe de programa): casi no
      cambian, pero se pueden editar cada vez en el propio formulario si hace falta.
+
+  5. Pestaña "Ficha de Terreno": DESTINATARIO_FICHA_EMAIL (a quién se envía) y SUBDIRECCIONES
+     (la lista real de subdirecciones — el Excel original traía ese desplegable vacío).
 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Solicitud de Camioneta</title>
+<title>Terreno SERNAGEOMIN</title>
 <meta name="theme-color" content="#c66b21">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
@@ -32,6 +35,10 @@
   header{background:var(--nar);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px;}
   header h1{font-size:17px;margin:0;font-weight:600;}
   header .ver{font-size:11px;opacity:.75;margin-left:auto;}
+  nav.tabs{display:flex;background:#fff;border-bottom:1px solid var(--borde);max-width:680px;margin:0 auto;}
+  nav.tabs .tab-btn{flex:1;background:none;border:none;padding:12px 8px;font-size:13px;font-weight:600;
+    color:#888;cursor:pointer;border-bottom:3px solid transparent;}
+  nav.tabs .tab-btn.activo{color:var(--nar);border-bottom-color:var(--nar);}
   main{max-width:680px;margin:0 auto;padding:16px;}
   .card{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:16px;margin-bottom:14px;}
   .card h2{font-size:14px;margin:0 0 10px;color:var(--nar-osc);}
@@ -41,10 +48,18 @@
   textarea{resize:vertical;min-height:56px;}
   input[readonly]{background:#f0f2f4;color:#666;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
-  .fila-vehiculo{border:1px solid var(--borde);border-radius:8px;padding:10px;margin-top:10px;position:relative;background:#fbfbfb;}
-  .fila-vehiculo .num{font-size:12px;color:#888;font-weight:600;}
-  .fila-vehiculo .quitar{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--err);
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 12px;}
+  .fila-vehiculo,.fila-participante,.fila-actividad,.fila-epp{
+    border:1px solid var(--borde);border-radius:8px;padding:10px;margin-top:10px;position:relative;background:#fbfbfb;}
+  .fila-vehiculo .num,.fila-participante .num,.fila-actividad .num,.fila-epp .num{font-size:12px;color:#888;font-weight:600;}
+  .fila-vehiculo .quitar,.fila-participante .quitar,.fila-actividad .quitar,.fila-epp .quitar{
+    position:absolute;top:8px;right:8px;background:none;border:none;color:var(--err);
     cursor:pointer;font-size:13px;}
+  .checks{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;}
+  .checks label{display:flex;align-items:center;gap:4px;font-size:12px;margin:0;color:#555;width:auto;}
+  .checks input[type=checkbox]{width:auto;}
+  .subtotal{font-size:13px;color:#555;margin-top:6px;background:#f0f2f4;border-radius:6px;padding:8px;}
+  .subtotal b{color:var(--nar-osc);}
   .btn{display:inline-block;background:var(--nar);color:#fff;border:none;border-radius:8px;padding:11px 18px;
     font-size:14px;font-weight:600;cursor:pointer;text-align:center;}
   .btn:active{background:var(--nar-osc);}
@@ -66,11 +81,18 @@
 <body>
 
 <header>
-  <h1>🚙 Solicitud de Camioneta</h1>
-  <span class="ver">v1</span>
+  <h1>🧭 Terreno SERNAGEOMIN</h1>
+  <span class="ver">v2</span>
 </header>
 
+<nav class="tabs">
+  <button class="tab-btn activo" id="tabBtnCamioneta" type="button">🚙 Solicitud de Camioneta</button>
+  <button class="tab-btn" id="tabBtnFicha" type="button">📋 Ficha de Terreno</button>
+</nav>
+
 <main>
+
+<div id="tabCamioneta">
 
   <div class="card">
     <h2>1. Datos generales</h2>
@@ -160,12 +182,206 @@
     <div class="aviso" id="avisoExcel"></div>
   </div>
 
+</div>
+<!-- ============ FIN pestaña Camioneta — INICIO pestaña Ficha de Terreno ============ -->
+<div id="tabFicha" style="display:none">
+
+  <div class="card">
+    <h2>1. Identificación del cometido</h2>
+    <div class="grid2">
+      <div>
+        <label for="tSubdireccion">Subdirección</label>
+        <select id="tSubdireccion"></select>
+      </div>
+      <div>
+        <label for="tDepto">Departamento</label>
+        <input type="text" id="tDepto">
+      </div>
+      <div>
+        <label for="tUnidad">Unidad</label>
+        <input type="text" id="tUnidad">
+      </div>
+      <div>
+        <label for="tCentroCosto">Centro de costo</label>
+        <input type="text" id="tCentroCosto">
+      </div>
+    </div>
+    <label for="tObjetivo">Objetivo del cometido</label>
+    <textarea id="tObjetivo"></textarea>
+    <label for="tEquipoSatelital">¿Requiere equipo satelital/SPOT u otros?</label>
+    <select id="tEquipoSatelital"><option>No</option><option>Sí</option></select>
+    <label for="tObservacionesGral">Observaciones</label>
+    <textarea id="tObservacionesGral" placeholder="Opcional"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>2. Participantes</h2>
+    <div id="filasParticipantes"></div>
+    <div class="fila-botones" style="margin-top:10px;">
+      <button class="btn secundario" id="btnAgregarParticipante" type="button">+ Agregar participante</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. Destino</h2>
+    <label for="tCiudadDestino">Ciudad de destino principal (viaje)</label>
+    <input type="text" id="tCiudadDestino">
+    <label>Localidades cercanas</label>
+    <div class="grid3">
+      <input type="text" id="tLoc1" placeholder="1)">
+      <input type="text" id="tLoc2" placeholder="2)">
+      <input type="text" id="tLoc3" placeholder="3)">
+    </div>
+    <label>Otras referencias geográficas</label>
+    <div class="grid3">
+      <input type="text" id="tRef1" placeholder="1)">
+      <input type="text" id="tRef2" placeholder="2)">
+      <input type="text" id="tRef3" placeholder="3)">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>4. Vehículos y transporte</h2>
+    <div class="grid3">
+      <div>
+        <label for="tVehCamioneta">Camioneta/Patente</label>
+        <input type="text" id="tVehCamioneta">
+      </div>
+      <div>
+        <label for="tVehCarro">Carro</label>
+        <input type="text" id="tVehCarro">
+      </div>
+      <div>
+        <label for="tVehOtro">Otro</label>
+        <input type="text" id="tVehOtro">
+      </div>
+    </div>
+    <label for="tValorCombustible">Valor carga combustible ($)</label>
+    <input type="number" id="tValorCombustible" min="0" step="1" value="0">
+    <label for="tObsTransporte">Observaciones (o arriendo de caballares: arriero, contacto, N° animales, período)</label>
+    <textarea id="tObsTransporte" placeholder="Opcional"></textarea>
+    <label for="tOtrosTransporte">Otros medios de transporte</label>
+    <textarea id="tOtrosTransporte" placeholder="Opcional"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>5. Viático</h2>
+    <div class="grid2">
+      <div>
+        <label for="tDiasProf100">Profesional — días al 100%</label>
+        <input type="number" id="tDiasProf100" min="0" step="1" value="0">
+      </div>
+      <div>
+        <label for="tDiasProf40">Profesional — días al 40%</label>
+        <input type="number" id="tDiasProf40" min="0" step="1" value="0">
+      </div>
+      <div>
+        <label for="tDiasAdm100">Administrativo — días al 100%</label>
+        <input type="number" id="tDiasAdm100" min="0" step="1" value="0">
+      </div>
+      <div>
+        <label for="tDiasAdm40">Administrativo — días al 40%</label>
+        <input type="number" id="tDiasAdm40" min="0" step="1" value="0">
+      </div>
+    </div>
+    <div class="subtotal" id="subtotalViatico"></div>
+  </div>
+
+  <div class="card">
+    <h2>6. Fondos a rendir</h2>
+    <div class="grid2">
+      <div>
+        <label for="tImprevistos">Imprevistos ($)</label>
+        <input type="number" id="tImprevistos" min="0" step="1" value="0">
+      </div>
+      <div>
+        <label for="tLavado">Lavado de camioneta ($)</label>
+        <input type="number" id="tLavado" min="0" step="1" value="0">
+      </div>
+      <div>
+        <label for="tPeajes">Peajes ($)</label>
+        <input type="number" id="tPeajes" min="0" step="1" value="0">
+      </div>
+      <div>
+        <label for="tOtroConcepto">Otro — ¿cuál?</label>
+        <input type="text" id="tOtroConcepto" placeholder="Opcional">
+      </div>
+      <div>
+        <label for="tOtroMonto">Otro — monto ($)</label>
+        <input type="number" id="tOtroMonto" min="0" step="1" value="0">
+      </div>
+    </div>
+    <div class="subtotal" id="subtotalFondos"></div>
+  </div>
+
+  <div class="card">
+    <h2>7. Actividades / objetivos</h2>
+    <div id="filasActividades"></div>
+    <div class="fila-botones" style="margin-top:10px;">
+      <button class="btn secundario" id="btnAgregarActividad" type="button">+ Agregar actividad</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>8. Elementos de Protección Personal (EPP)</h2>
+    <div id="filasEpp"></div>
+    <div class="fila-botones" style="margin-top:10px;">
+      <button class="btn secundario" id="btnAgregarEpp" type="button">+ Agregar EPP</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>9. Seguridad y riesgos</h2>
+    <label for="tRiesgosIdent">Identificación de riesgos</label>
+    <textarea id="tRiesgosIdent"></textarea>
+    <label for="tRiesgosMedidas">Medidas preventivas</label>
+    <textarea id="tRiesgosMedidas"></textarea>
+    <label for="tRiesgosPlanEmerg">Plan de emergencia</label>
+    <textarea id="tRiesgosPlanEmerg"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>10. Elaboración y revisión</h2>
+    <div class="grid2">
+      <div>
+        <label for="tFechaElab">Fecha elaboración</label>
+        <input type="date" id="tFechaElab">
+      </div>
+      <div>
+        <label for="tElaboradoPor">Elaborado por</label>
+        <input type="text" id="tElaboradoPor">
+      </div>
+      <div>
+        <label for="tFechaRev">Fecha revisión</label>
+        <input type="date" id="tFechaRev">
+      </div>
+      <div>
+        <label for="tRevisadoPor">Revisado por</label>
+        <input type="text" id="tRevisadoPor">
+      </div>
+    </div>
+    <label for="tDiasInhabiles">Días inhábiles que requieren permiso de circulación (si aplica)</label>
+    <input type="text" id="tDiasInhabiles" placeholder="Opcional">
+  </div>
+
+  <div class="card">
+    <h2>11. Enviar</h2>
+    <div class="error" id="erroresFicha"></div>
+    <div class="fila-botones">
+      <button class="btn" id="btnGenerarExcelFicha" type="button" disabled>1. Generar planilla (.xlsx)</button>
+      <button class="btn secundario" id="btnAbrirCorreoFicha" type="button" disabled>2. Abrir correo</button>
+    </div>
+    <div class="aviso" id="avisoExcelFicha"></div>
+  </div>
+
+</div>
+
 </main>
 
 <footer>
-  El botón 1 descarga la planilla oficial ya rellenada. El botón 2 abre tu cliente de correo con
-  el resumen de la solicitud — recuerda ADJUNTAR el archivo descargado antes de enviar (los
-  navegadores no permiten adjuntar archivos automáticamente por seguridad).
+  El botón "Generar planilla" descarga la planilla oficial ya rellenada. El botón "Abrir correo"
+  abre tu cliente de correo con el resumen — recuerda ADJUNTAR el archivo descargado antes de
+  enviar (los navegadores no permiten adjuntar archivos automáticamente por seguridad).
 </footer>
 
 <script src="vendor/jszip.min.js"></script>
@@ -193,6 +409,39 @@ const PATENTES = [
 ];
 
 const MAX_FILAS = 4; // filas disponibles en la plantilla oficial
+
+// TODO usuario: correo real de quien revisa/aprueba la Ficha de Terreno (jefe de departamento / RRHH).
+const DESTINATARIO_FICHA_EMAIL = 'jefe.departamento@sernageomin.cl';
+
+// TODO usuario: el desplegable "SUBDIRECCIÓN" del Excel original venía vacío — reemplazar por la
+// nómina real de subdirecciones de SERNAGEOMIN.
+const SUBDIRECCIONES = ['Subdirección Nacional de Geología', 'Subdirección Nacional de Minería', 'Subdirección de Regulación'];
+
+// Tarifas oficiales de viático (mismas que trae el Excel original, filas 33-34).
+const TARIFA_PROF_100 = 85721, TARIFA_PROF_40 = 34288;
+const TARIFA_ADM_100 = 58501, TARIFA_ADM_40 = 23400;
+
+const MAX_PARTICIPANTES = 5, MAX_ACTIVIDADES = 8, MAX_EPP = 10;
+
+// ============================================================
+// Pestañas
+// ============================================================
+const tabBtnCamioneta = document.getElementById('tabBtnCamioneta');
+const tabBtnFicha = document.getElementById('tabBtnFicha');
+const tabCamioneta = document.getElementById('tabCamioneta');
+const tabFicha = document.getElementById('tabFicha');
+tabBtnCamioneta.addEventListener('click', () => {
+  tabCamioneta.style.display = '';
+  tabFicha.style.display = 'none';
+  tabBtnCamioneta.classList.add('activo');
+  tabBtnFicha.classList.remove('activo');
+});
+tabBtnFicha.addEventListener('click', () => {
+  tabCamioneta.style.display = 'none';
+  tabFicha.style.display = '';
+  tabBtnFicha.classList.add('activo');
+  tabBtnCamioneta.classList.remove('activo');
+});
 
 // ============================================================
 // Utilidades
@@ -552,6 +801,435 @@ function revisarSolapes() {
 }
 
 // ============================================================
+// FICHA DE TERRENO — filas dinámicas de participantes
+// ============================================================
+function splitFechaDMA(iso) {
+  if (!iso) return { dia: '', mes: '', anio: '' };
+  const [y, m, d] = iso.split('-');
+  return { dia: d, mes: m, anio: y };
+}
+function clp(n) { return Math.round(n || 0).toLocaleString('es-CL'); }
+
+const contParticipantes = document.getElementById('filasParticipantes');
+let numParticipantes = 0;
+
+function agregarParticipante() {
+  if (numParticipantes >= MAX_PARTICIPANTES) return;
+  numParticipantes++;
+  const idx = numParticipantes;
+  const div = document.createElement('div');
+  div.className = 'fila-participante';
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <span class="num">Participante ${idx}</span>
+    ${idx > 1 ? '<button type="button" class="quitar">✕ quitar</button>' : ''}
+    <label>Nombre completo</label>
+    <input type="text" class="pNombre">
+    <div class="grid2">
+      <div><label>Origen</label><input type="text" class="pOrigen"></div>
+      <div><label>RUT</label><input type="text" class="pRut"></div>
+      <div><label>Celular personal</label><input type="text" class="pCel"></div>
+      <div><label>Teléfono emergencia</label><input type="text" class="pTelEmerg"></div>
+      <div><label>Contacto emergencia</label><input type="text" class="pContactoEmerg"></div>
+      <div><label>Traslado</label>
+        <select class="pTraslado"><option value="">—</option><option>Avión</option><option>Bus</option><option>Otro</option></select>
+      </div>
+      <div><label>Fecha salida</label><input type="date" class="pFSalida"></div>
+      <div><label>Fecha regreso</label><input type="date" class="pFRegreso"></div>
+      <div><label>Vuelo ida</label><input type="text" class="pVueloIda"></div>
+      <div><label>Vuelo regreso</label><input type="text" class="pVueloRegreso"></div>
+    </div>
+    <label>Exámenes / condiciones de terreno</label>
+    <div class="checks">
+      <label><input type="checkbox" class="pExAltFis"> Altura física</label>
+      <label><input type="checkbox" class="pExAltGeo"> Altura geográfica</label>
+      <label><input type="checkbox" class="pExFrio"> Frío</label>
+      <label><input type="checkbox" class="pExCalor"> Calor</label>
+      <label><input type="checkbox" class="pExConfin"> Ambientes confinados</label>
+      <label><input type="checkbox" class="pExCond"> Conducción de vehículos</label>
+    </div>
+  `;
+  contParticipantes.appendChild(div);
+  div.querySelectorAll('input,select').forEach(el => {
+    el.addEventListener('input', validarFicha);
+    el.addEventListener('change', validarFicha);
+  });
+  const btnQuitar = div.querySelector('.quitar');
+  if (btnQuitar) btnQuitar.addEventListener('click', () => { div.remove(); renumerarParticipantes(); validarFicha(); });
+  document.getElementById('btnAgregarParticipante').disabled = numParticipantes >= MAX_PARTICIPANTES;
+}
+function renumerarParticipantes() {
+  numParticipantes = 0;
+  contParticipantes.querySelectorAll('.fila-participante').forEach(div => {
+    numParticipantes++;
+    div.dataset.idx = numParticipantes;
+    div.querySelector('.num').textContent = `Participante ${numParticipantes}`;
+  });
+  document.getElementById('btnAgregarParticipante').disabled = numParticipantes >= MAX_PARTICIPANTES;
+}
+document.getElementById('btnAgregarParticipante').addEventListener('click', agregarParticipante);
+
+// ---- Actividades ----
+const contActividades = document.getElementById('filasActividades');
+let numActividades = 0;
+function agregarActividad() {
+  if (numActividades >= MAX_ACTIVIDADES) return;
+  numActividades++;
+  const idx = numActividades;
+  const div = document.createElement('div');
+  div.className = 'fila-actividad';
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <span class="num">Actividad ${idx}</span>
+    <button type="button" class="quitar">✕ quitar</button>
+    <div class="grid2">
+      <div><label># de días</label><input type="number" class="aDias" min="0" step="1" value="0"></div>
+      <div><label>Actividad / objetivo</label><input type="text" class="aDesc"></div>
+    </div>
+  `;
+  contActividades.appendChild(div);
+  div.querySelectorAll('input').forEach(el => el.addEventListener('input', validarFicha));
+  div.querySelector('.quitar').addEventListener('click', () => { div.remove(); renumerarActividades(); validarFicha(); });
+  document.getElementById('btnAgregarActividad').disabled = numActividades >= MAX_ACTIVIDADES;
+}
+function renumerarActividades() {
+  numActividades = 0;
+  contActividades.querySelectorAll('.fila-actividad').forEach(div => {
+    numActividades++;
+    div.dataset.idx = numActividades;
+    div.querySelector('.num').textContent = `Actividad ${numActividades}`;
+  });
+  document.getElementById('btnAgregarActividad').disabled = numActividades >= MAX_ACTIVIDADES;
+}
+document.getElementById('btnAgregarActividad').addEventListener('click', agregarActividad);
+
+// ---- EPP ----
+const contEpp = document.getElementById('filasEpp');
+let numEpp = 0;
+function agregarEpp() {
+  if (numEpp >= MAX_EPP) return;
+  numEpp++;
+  const idx = numEpp;
+  const div = document.createElement('div');
+  div.className = 'fila-epp';
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <span class="num">EPP ${idx}</span>
+    <button type="button" class="quitar">✕ quitar</button>
+    <div class="grid2">
+      <div><label>Nombre funcionario</label><input type="text" class="eNombre"></div>
+      <div><label>Elemento asignado</label><input type="text" class="eElemento"></div>
+      <div><label>Cantidad</label><input type="number" class="eCantidad" min="0" step="1" value="1"></div>
+      <div><label>Estado</label><input type="text" class="eEstado" placeholder="Ej: Nuevo, Bueno, Regular"></div>
+    </div>
+    <label>Observaciones</label>
+    <input type="text" class="eObs" placeholder="Opcional">
+  `;
+  contEpp.appendChild(div);
+  div.querySelectorAll('input').forEach(el => el.addEventListener('input', validarFicha));
+  div.querySelector('.quitar').addEventListener('click', () => { div.remove(); renumerarEpp(); validarFicha(); });
+  document.getElementById('btnAgregarEpp').disabled = numEpp >= MAX_EPP;
+}
+function renumerarEpp() {
+  numEpp = 0;
+  contEpp.querySelectorAll('.fila-epp').forEach(div => {
+    numEpp++;
+    div.dataset.idx = numEpp;
+    div.querySelector('.num').textContent = `EPP ${numEpp}`;
+  });
+  document.getElementById('btnAgregarEpp').disabled = numEpp >= MAX_EPP;
+}
+document.getElementById('btnAgregarEpp').addEventListener('click', agregarEpp);
+
+// ============================================================
+// FICHA DE TERRENO — recolección, validación y subtotales
+// ============================================================
+function recolectarParticipantes() {
+  return Array.from(contParticipantes.querySelectorAll('.fila-participante')).map(div => ({
+    nombre: div.querySelector('.pNombre').value.trim(),
+    origen: div.querySelector('.pOrigen').value.trim(),
+    rut: div.querySelector('.pRut').value.trim(),
+    cel: div.querySelector('.pCel').value.trim(),
+    telEmerg: div.querySelector('.pTelEmerg').value.trim(),
+    contactoEmerg: div.querySelector('.pContactoEmerg').value.trim(),
+    fSalida: div.querySelector('.pFSalida').value,
+    fRegreso: div.querySelector('.pFRegreso').value,
+    traslado: div.querySelector('.pTraslado').value,
+    vueloIda: div.querySelector('.pVueloIda').value.trim(),
+    vueloRegreso: div.querySelector('.pVueloRegreso').value.trim(),
+    exAltFis: div.querySelector('.pExAltFis').checked,
+    exAltGeo: div.querySelector('.pExAltGeo').checked,
+    exFrio: div.querySelector('.pExFrio').checked,
+    exCalor: div.querySelector('.pExCalor').checked,
+    exConfin: div.querySelector('.pExConfin').checked,
+    exCond: div.querySelector('.pExCond').checked,
+  })).filter(p => p.nombre);
+}
+function recolectarActividades() {
+  return Array.from(contActividades.querySelectorAll('.fila-actividad')).map(div => ({
+    dias: div.querySelector('.aDias').value,
+    desc: div.querySelector('.aDesc').value.trim(),
+  })).filter(a => a.desc || (a.dias && a.dias !== '0'));
+}
+function recolectarEpp() {
+  return Array.from(contEpp.querySelectorAll('.fila-epp')).map(div => ({
+    nombre: div.querySelector('.eNombre').value.trim(),
+    elemento: div.querySelector('.eElemento').value.trim(),
+    cantidad: div.querySelector('.eCantidad').value,
+    estado: div.querySelector('.eEstado').value.trim(),
+    obs: div.querySelector('.eObs').value.trim(),
+  })).filter(e => e.nombre || e.elemento);
+}
+
+function recolectarDatosFicha() {
+  const v = id => document.getElementById(id).value.trim();
+  return {
+    subdireccion: document.getElementById('tSubdireccion').value,
+    depto: v('tDepto'),
+    unidad: v('tUnidad'),
+    centroCosto: v('tCentroCosto'),
+    objetivo: v('tObjetivo'),
+    equipoSatelital: document.getElementById('tEquipoSatelital').value,
+    observacionesGral: v('tObservacionesGral'),
+    participantes: recolectarParticipantes(),
+    ciudadDestino: v('tCiudadDestino'),
+    loc1: v('tLoc1'), loc2: v('tLoc2'), loc3: v('tLoc3'),
+    ref1: v('tRef1'), ref2: v('tRef2'), ref3: v('tRef3'),
+    vehCamioneta: v('tVehCamioneta'), vehCarro: v('tVehCarro'), vehOtro: v('tVehOtro'),
+    valorCombustible: document.getElementById('tValorCombustible').value || '0',
+    obsTransporte: v('tObsTransporte'), otrosTransporte: v('tOtrosTransporte'),
+    diasProf100: Number(document.getElementById('tDiasProf100').value || 0),
+    diasProf40: Number(document.getElementById('tDiasProf40').value || 0),
+    diasAdm100: Number(document.getElementById('tDiasAdm100').value || 0),
+    diasAdm40: Number(document.getElementById('tDiasAdm40').value || 0),
+    imprevistos: Number(document.getElementById('tImprevistos').value || 0),
+    lavado: Number(document.getElementById('tLavado').value || 0),
+    peajes: Number(document.getElementById('tPeajes').value || 0),
+    otroConcepto: v('tOtroConcepto'),
+    otroMonto: Number(document.getElementById('tOtroMonto').value || 0),
+    actividades: recolectarActividades(),
+    epp: recolectarEpp(),
+    riesgosIdent: v('tRiesgosIdent'), riesgosMedidas: v('tRiesgosMedidas'), riesgosPlanEmerg: v('tRiesgosPlanEmerg'),
+    fechaElab: v('tFechaElab'), elaboradoPor: v('tElaboradoPor'),
+    fechaRev: v('tFechaRev'), revisadoPor: v('tRevisadoPor'),
+    diasInhabiles: v('tDiasInhabiles'),
+  };
+}
+
+function calcularViatico(d) {
+  const eProf100 = TARIFA_PROF_100 * d.diasProf100;
+  const eProf40 = d.diasProf40 * TARIFA_PROF_40;
+  const gProf = eProf100 + eProf40;
+  const eAdm100 = TARIFA_ADM_100 * d.diasAdm100;
+  const eAdm40 = d.diasAdm40 * TARIFA_ADM_40;
+  const gAdm = eAdm100 + eAdm40;
+  return {
+    eProf100, eProf40, gProf, eAdm100, eAdm40, gAdm,
+    totalDias100: d.diasProf100 + d.diasAdm100,
+    totalDias40: d.diasProf40 + d.diasAdm40,
+    total100: eProf100 + eAdm100,
+    total40: eProf40 + eAdm40,
+    totalGeneral: gProf + gAdm,
+  };
+}
+
+function actualizarSubtotalesFicha() {
+  const d = recolectarDatosFicha();
+  const via = calcularViatico(d);
+  document.getElementById('subtotalViatico').innerHTML =
+    `Profesional: <b>$${clp(via.gProf)}</b> · Administrativo: <b>$${clp(via.gAdm)}</b> · Total viático: <b>$${clp(via.totalGeneral)}</b>`;
+  const totalFondos = d.imprevistos + d.lavado + d.peajes + d.otroMonto;
+  document.getElementById('subtotalFondos').innerHTML = `Total fondos a rendir: <b>$${clp(totalFondos)}</b>`;
+}
+
+function validarFicha() {
+  const errores = [];
+  const d = recolectarDatosFicha();
+  if (!d.objetivo) errores.push('Falta el objetivo del cometido.');
+  if (!d.ciudadDestino) errores.push('Falta la ciudad de destino principal.');
+  if (d.participantes.length === 0) {
+    errores.push('Agrega al menos un participante con nombre.');
+  } else {
+    d.participantes.forEach((p, i) => {
+      if (!p.fSalida || !p.fRegreso) errores.push(`Falta fecha de salida/regreso del participante ${i + 1}.`);
+    });
+  }
+  document.getElementById('erroresFicha').textContent = errores[0] || '';
+  document.getElementById('btnGenerarExcelFicha').disabled = errores.length > 0;
+  actualizarSubtotalesFicha();
+  return errores.length === 0;
+}
+
+[
+  'tDepto', 'tUnidad', 'tCentroCosto', 'tObjetivo', 'tEquipoSatelital', 'tObservacionesGral',
+  'tCiudadDestino', 'tLoc1', 'tLoc2', 'tLoc3', 'tRef1', 'tRef2', 'tRef3',
+  'tVehCamioneta', 'tVehCarro', 'tVehOtro', 'tValorCombustible', 'tObsTransporte', 'tOtrosTransporte',
+  'tDiasProf100', 'tDiasProf40', 'tDiasAdm100', 'tDiasAdm40',
+  'tImprevistos', 'tLavado', 'tPeajes', 'tOtroConcepto', 'tOtroMonto',
+  'tRiesgosIdent', 'tRiesgosMedidas', 'tRiesgosPlanEmerg',
+  'tFechaElab', 'tElaboradoPor', 'tFechaRev', 'tRevisadoPor', 'tDiasInhabiles',
+].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', validarFicha);
+  el.addEventListener('change', validarFicha);
+});
+document.getElementById('tSubdireccion').addEventListener('change', validarFicha);
+
+// ============================================================
+// FICHA DE TERRENO — generación del .xlsx oficial y correo
+// ============================================================
+function construirReemplazosFicha(d) {
+  const rep = {};
+  rep.SUBDIRECCION = d.subdireccion;
+  rep.DEPTO = d.depto;
+  rep.UNIDAD = d.unidad;
+  rep.CENTRO_COSTO = d.centroCosto;
+  rep.OBJETIVO = d.objetivo;
+  rep.EQUIPO_SI_LABEL = d.equipoSatelital === 'Sí' ? 'SI: X' : 'SI:';
+  rep.EQUIPO_NO_LABEL = d.equipoSatelital === 'Sí' ? 'NO:' : 'NO: X';
+  rep.OBSERVACIONES_GRAL = d.observacionesGral;
+
+  for (let i = 1; i <= MAX_PARTICIPANTES; i++) {
+    const p = d.participantes[i - 1];
+    rep[`P${i}_NOMBRE`] = p ? p.nombre : '';
+    rep[`P${i}_ORIGEN`] = p ? p.origen : '';
+    rep[`P${i}_RUT`] = p ? p.rut : '';
+    rep[`P${i}_CEL`] = p ? p.cel : '';
+    rep[`P${i}_TEL_EMERG`] = p ? p.telEmerg : '';
+    rep[`P${i}_CONTACTO_EMERG`] = p ? p.contactoEmerg : '';
+    rep[`P${i}_FSALIDA`] = p ? formatearFechaDMY(p.fSalida) : '';
+    rep[`P${i}_FREGRESO`] = p ? formatearFechaDMY(p.fRegreso) : '';
+    rep[`P${i}_TRASLADO`] = p ? p.traslado : '';
+    rep[`P${i}_VUELO_IDA`] = p ? p.vueloIda : '';
+    rep[`P${i}_VUELO_REGRESO`] = p ? p.vueloRegreso : '';
+    rep[`P${i}_EX_ALTFIS`] = p && p.exAltFis ? 'X' : '';
+    rep[`P${i}_EX_ALTGEO`] = p && p.exAltGeo ? 'X' : '';
+    rep[`P${i}_EX_FRIO`] = p && p.exFrio ? 'X' : '';
+    rep[`P${i}_EX_CALOR`] = p && p.exCalor ? 'X' : '';
+    rep[`P${i}_EX_CONFIN`] = p && p.exConfin ? 'X' : '';
+    rep[`P${i}_EX_COND`] = p && p.exCond ? 'X' : '';
+  }
+
+  rep.CIUDAD_DESTINO = d.ciudadDestino;
+  rep.LOC1 = d.loc1; rep.LOC2 = d.loc2; rep.LOC3 = d.loc3;
+  rep.REF1 = d.ref1; rep.REF2 = d.ref2; rep.REF3 = d.ref3;
+
+  rep.VEH_CAMIONETA = d.vehCamioneta; rep.VEH_CARRO = d.vehCarro; rep.VEH_OTRO = d.vehOtro;
+  rep.VALOR_COMBUSTIBLE = d.valorCombustible;
+  rep.OBS_TRANSPORTE = d.obsTransporte;
+  rep.OTROS_TRANSPORTE = d.otrosTransporte;
+
+  const via = calcularViatico(d);
+  rep.VIA_C33 = String(d.diasProf100); rep.VIA_D33 = String(d.diasProf40);
+  rep.VIA_E33 = clp(via.eProf100); rep.VIA_F33 = clp(via.eProf40); rep.VIA_G33 = clp(via.gProf);
+  rep.VIA_C34 = String(d.diasAdm100); rep.VIA_D34 = String(d.diasAdm40);
+  rep.VIA_E34 = clp(via.eAdm100); rep.VIA_F34 = clp(via.eAdm40); rep.VIA_G34 = clp(via.gAdm);
+  rep.VIA_C35 = String(via.totalDias100); rep.VIA_D35 = String(via.totalDias40);
+  rep.VIA_E35 = clp(via.total100); rep.VIA_F35 = clp(via.total40); rep.VIA_G35 = clp(via.totalGeneral);
+
+  rep.FONDOS_OTRO_LABEL = d.otroConcepto ? `Otro (${d.otroConcepto})` : 'Otro (¿cuál?)';
+  rep.FONDOS_E38 = clp(d.imprevistos); rep.FONDOS_E39 = clp(d.lavado);
+  rep.FONDOS_E40 = clp(d.peajes); rep.FONDOS_E41 = clp(d.otroMonto);
+  rep.FONDOS_E42 = clp(d.imprevistos + d.lavado + d.peajes + d.otroMonto);
+  rep.FONDOS_DET_G38 = ''; rep.FONDOS_DET_G39 = ''; rep.FONDOS_DET_G40 = ''; rep.FONDOS_DET_G41 = '';
+
+  for (let i = 1; i <= MAX_ACTIVIDADES; i++) {
+    const a = d.actividades[i - 1];
+    rep[`ACT${i}_DIAS`] = a ? String(a.dias || '') : '';
+    rep[`ACT${i}_DESC`] = a ? a.desc : '';
+  }
+
+  for (let i = 1; i <= MAX_EPP; i++) {
+    const e = d.epp[i - 1];
+    rep[`EPP${i}_NOMBRE`] = e ? e.nombre : '';
+    rep[`EPP${i}_ELEMENTO`] = e ? e.elemento : '';
+    rep[`EPP${i}_CANTIDAD`] = e ? String(e.cantidad || '') : '';
+    rep[`EPP${i}_ESTADO`] = e ? e.estado : '';
+    rep[`EPP${i}_OBS`] = e ? e.obs : '';
+  }
+
+  rep.RIESGOS_IDENT = d.riesgosIdent;
+  rep.RIESGOS_MEDIDAS = d.riesgosMedidas;
+  rep.RIESGOS_PLAN_EMERG = d.riesgosPlanEmerg;
+
+  const elab = splitFechaDMA(d.fechaElab);
+  rep.ELAB_DIA = elab.dia; rep.ELAB_MES = elab.mes; rep.ELAB_ANIO = elab.anio;
+  rep.ELABORADO_POR = d.elaboradoPor;
+  const rev = splitFechaDMA(d.fechaRev);
+  rep.REV_DIA = rev.dia; rep.REV_MES = rev.mes; rep.REV_ANIO = rev.anio;
+  rep.REVISADO_POR = d.revisadoPor;
+
+  rep.NOTA_PERMISO_CIRCULACION =
+    `NOTA: EN CASO QUE CORRESPONDA GESTIONAR PERMISO DE CIRCULACIÓN PARA TRANSITAR EN LOS SIGUIENTES DÍAS INHÁBILES: ${d.diasInhabiles || '(no aplica)'}`;
+
+  return rep;
+}
+
+async function generarExcelFicha(d) {
+  const resp = await fetch('assets/plantilla_ficha_terreno.xlsx');
+  if (!resp.ok) throw new Error('No se pudo cargar la plantilla (assets/plantilla_ficha_terreno.xlsx).');
+  const bytes = await resp.arrayBuffer();
+  const zip = await JSZip.loadAsync(bytes);
+  const rep = construirReemplazosFicha(d);
+
+  const sheetPaths = Object.keys(zip.files).filter(p => /^xl\/worksheets\/sheet\d+\.xml$/.test(p));
+  for (const p of sheetPaths) {
+    let xml = await zip.file(p).async('string');
+    xml = xml.replace(/@@([A-Za-z0-9_]+)@@/g, (m, tok) => (tok in rep) ? escXml(rep[tok]) : '');
+    zip.file(p, xml);
+  }
+
+  return zip.generateAsync({
+    type: 'blob', compression: 'DEFLATE',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+}
+
+let nombreArchivoFichaGenerado = '';
+
+document.getElementById('btnGenerarExcelFicha').addEventListener('click', async () => {
+  if (!validarFicha()) return;
+  const d = recolectarDatosFicha();
+  const aviso = document.getElementById('avisoExcelFicha');
+  aviso.textContent = 'Generando planilla…';
+  try {
+    const blob = await generarExcelFicha(d);
+    nombreArchivoFichaGenerado = `Ficha terreno ${d.ciudadDestino || 'cometido'} ${d.fechaElab || hoyISO()}.xlsx`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombreArchivoFichaGenerado;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    aviso.textContent = `Planilla descargada: ${nombreArchivoFichaGenerado}. Ahora abre el correo y adjúntala antes de enviar.`;
+    document.getElementById('btnAbrirCorreoFicha').disabled = false;
+  } catch (e) {
+    aviso.textContent = 'No se pudo generar la planilla: ' + e.message;
+  }
+});
+
+function construirMailtoFicha(d) {
+  const principal = d.participantes[0] || {};
+  const asunto = `Ficha de terreno — ${principal.nombre || d.elaboradoPor || ''} — ${d.ciudadDestino}`;
+  const cuerpo = [
+    'Ficha para cometidos funcionarios (SERNAGEOMIN)', '',
+    `IMPORTANTE: adjuntar el archivo ${nombreArchivoFichaGenerado || '(descargado en el paso 1)'} antes de enviar.`, '',
+    `Objetivo del cometido: ${d.objetivo}`,
+    `Ciudad de destino: ${d.ciudadDestino}`,
+    `Participantes: ${d.participantes.map(p => p.nombre).join(', ') || '(sin indicar)'}`,
+    `Viático total estimado: $${clp(calcularViatico(d).totalGeneral)}`,
+    `Fondos a rendir: $${clp(d.imprevistos + d.lavado + d.peajes + d.otroMonto)}`,
+    `Observaciones: ${d.observacionesGral || '(sin observaciones)'}`,
+    '', 'Enviado desde la PWA Terreno SERNAGEOMIN.',
+  ].join('\r\n');
+  return `mailto:${DESTINATARIO_FICHA_EMAIL}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+}
+
+document.getElementById('btnAbrirCorreoFicha').addEventListener('click', () => {
+  const d = recolectarDatosFicha();
+  window.location.href = construirMailtoFicha(d);
+});
+
+// ============================================================
 // Valores por defecto y arranque
 // ============================================================
 document.getElementById('fFechaSolicitud').value = formatearFechaDMY(hoyISO());
@@ -561,6 +1239,13 @@ document.getElementById('fJefeCC').value = JEFE_CC_DEFECTO;
 document.getElementById('fJefePrograma').value = JEFE_PROGRAMA_DEFECTO;
 document.getElementById('fDepto').value = DEPTO_DEFECTO;
 validarFormulario();
+
+document.getElementById('tSubdireccion').innerHTML = SUBDIRECCIONES.map(s => `<option>${escXml(s)}</option>`).join('');
+document.getElementById('tDepto').value = DEPTO_DEFECTO;
+document.getElementById('tCentroCosto').value = CENTRO_COSTO_DEFECTO;
+document.getElementById('tFechaElab').value = hoyISO();
+agregarParticipante();
+validarFicha();
 
 // ============================================================
 // PWA: registro del service worker
