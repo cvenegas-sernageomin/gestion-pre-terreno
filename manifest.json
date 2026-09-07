@@ -1,6 +1,6 @@
 {
-  "name": "Terreno SERNAGEOMIN",
-  "short_name": "Terreno",
+  "name": "Gestión Pre-Terreno",
+  "short_name": "Pre-Terreno",
   "description": "Solicitud de camioneta y conductor, y Ficha para cometidos funcionarios, con las planillas oficiales ya rellenadas.",
   "start_url": ".",
   "scope": ".",

@@ -23,7 +23,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Terreno SERNAGEOMIN</title>
+<title>Gestión Pre-Terreno</title>
 <meta name="theme-color" content="#c66b21">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
@@ -81,7 +81,7 @@
 <body>
 
 <header>
-  <h1>🧭 Terreno SERNAGEOMIN</h1>
+  <h1>🧭 Gestión Pre-Terreno</h1>
   <span class="ver">v2</span>
 </header>
 
@@ -702,7 +702,7 @@ function construirMailto(d) {
     `¿Sobre altura geográfica?: ${d.alturaGeografica}`,
     `Permiso de circulación: ${d.permisoCirculacion || '(no indicado)'}`,
     `Observaciones: ${d.observacion || '(sin observaciones)'}`,
-    '', 'Enviado desde la PWA Solicitud de Camioneta (SERNAGEOMIN).',
+    '', 'Enviado desde la PWA Gestión Pre-Terreno (SERNAGEOMIN).',
   ].join('\r\n');
   return `mailto:${ENCARGADO_FLOTA_EMAIL}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
 }
@@ -1219,7 +1219,7 @@ function construirMailtoFicha(d) {
     `Viático total estimado: $${clp(calcularViatico(d).totalGeneral)}`,
     `Fondos a rendir: $${clp(d.imprevistos + d.lavado + d.peajes + d.otroMonto)}`,
     `Observaciones: ${d.observacionesGral || '(sin observaciones)'}`,
-    '', 'Enviado desde la PWA Terreno SERNAGEOMIN.',
+    '', 'Enviado desde la PWA Gestión Pre-Terreno (SERNAGEOMIN).',
   ].join('\r\n');
   return `mailto:${DESTINATARIO_FICHA_EMAIL}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
 }
