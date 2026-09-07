@@ -95,6 +95,17 @@
 <div id="tabCamioneta">
 
   <div class="card">
+    <h2>Borrador</h2>
+    <div class="fila-botones">
+      <button class="btn secundario" id="btnGuardarBorradorCam" type="button">💾 Guardar borrador (.json)</button>
+      <button class="btn secundario" id="btnCargarBorradorCam" type="button">📂 Cargar borrador (.json)</button>
+      <button class="btn secundario" id="btnNuevaCam" type="button">🗑 Nueva solicitud</button>
+      <input type="file" id="fileCargarBorradorCam" accept="application/json" style="display:none;">
+    </div>
+    <div class="aviso" id="avisoBorradorCam"></div>
+  </div>
+
+  <div class="card">
     <h2>1. Datos generales</h2>
     <div class="grid2">
       <div>
@@ -185,6 +196,17 @@
 </div>
 <!-- ============ FIN pestaña Camioneta — INICIO pestaña Ficha de Terreno ============ -->
 <div id="tabFicha" style="display:none">
+
+  <div class="card">
+    <h2>Borrador</h2>
+    <div class="fila-botones">
+      <button class="btn secundario" id="btnGuardarBorradorFicha" type="button">💾 Guardar borrador (.json)</button>
+      <button class="btn secundario" id="btnCargarBorradorFicha" type="button">📂 Cargar borrador (.json)</button>
+      <button class="btn secundario" id="btnNuevaFicha" type="button">🗑 Nueva ficha</button>
+      <input type="file" id="fileCargarBorradorFicha" accept="application/json" style="display:none;">
+    </div>
+    <div class="aviso" id="avisoBorradorFicha"></div>
+  </div>
 
   <div class="card">
     <h2>1. Identificación del cometido</h2>
@@ -587,6 +609,7 @@ function validarFormulario() {
 
   document.getElementById('erroresForm').textContent = errores[0] || '';
   document.getElementById('btnGenerarExcel').disabled = errores.length > 0;
+  autoguardarCamioneta();
   return errores.length === 0;
 }
 
@@ -1057,6 +1080,7 @@ function validarFicha() {
   document.getElementById('erroresFicha').textContent = errores[0] || '';
   document.getElementById('btnGenerarExcelFicha').disabled = errores.length > 0;
   actualizarSubtotalesFicha();
+  autoguardarFicha();
   return errores.length === 0;
 }
 
@@ -1230,21 +1254,225 @@ document.getElementById('btnAbrirCorreoFicha').addEventListener('click', () => {
 });
 
 // ============================================================
+// Borradores — autoguardado (localStorage) + guardar/cargar archivo .json
+// ============================================================
+const LS_KEY_CAMIONETA = 'borrador_camioneta_v1';
+const LS_KEY_FICHA = 'borrador_ficha_v1';
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+function guardarBorradorLS(key, datos) {
+  try { localStorage.setItem(key, JSON.stringify(datos)); } catch (e) {}
+}
+function cargarBorradorLS(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function obtenerEstadoCamioneta() {
+  const v = id => document.getElementById(id).value;
+  return {
+    centroCosto: v('fCentroCosto'), regionInst: v('fRegionInst'), jefeCC: v('fJefeCC'),
+    jefePrograma: v('fJefePrograma'), depto: v('fDepto'), objetivo: v('fObjetivo'),
+    regionLoc: v('fRegionLoc'), fechaInicio: v('fFechaInicio'), fechaTermino: v('fFechaTermino'),
+    carroArrastre: v('fCarroArrastre'), altura: v('fAltura'), permisoCirc: v('fPermisoCirc'),
+    observacion: v('fObservacion'),
+    filas: recolectarFilas(),
+  };
+}
+function aplicarEstadoCamioneta(e) {
+  if (!e) return;
+  const set = (id, val) => { if (val != null) document.getElementById(id).value = val; };
+  set('fCentroCosto', e.centroCosto); set('fRegionInst', e.regionInst); set('fJefeCC', e.jefeCC);
+  set('fJefePrograma', e.jefePrograma); set('fDepto', e.depto); set('fObjetivo', e.objetivo);
+  set('fRegionLoc', e.regionLoc); set('fFechaInicio', e.fechaInicio); set('fFechaTermino', e.fechaTermino);
+  set('fCarroArrastre', e.carroArrastre); set('fAltura', e.altura); set('fPermisoCirc', e.permisoCirc);
+  set('fObservacion', e.observacion);
+
+  contFilas.innerHTML = ''; numFilas = 0;
+  const filas = (e.filas && e.filas.length) ? e.filas : [{}];
+  filas.forEach(f => {
+    agregarFila();
+    const div = contFilas.lastElementChild;
+    if (f.profesional) div.querySelector('.fProfesional').value = f.profesional;
+    if (f.conductor) div.querySelector('.fConductor').value = f.conductor;
+    if (f.patente) div.querySelector('.fPatente').value = f.patente;
+    if (f.origen) div.querySelector('.fOrigen').value = f.origen;
+  });
+  validarFormulario();
+  revisarSolapes();
+}
+const autoguardarCamioneta = debounce(() => guardarBorradorLS(LS_KEY_CAMIONETA, obtenerEstadoCamioneta()), 400);
+
+document.getElementById('btnGuardarBorradorCam').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(obtenerEstadoCamioneta(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Borrador camioneta ${hoyISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  document.getElementById('avisoBorradorCam').textContent = 'Borrador descargado.';
+});
+document.getElementById('btnCargarBorradorCam').addEventListener('click', () => document.getElementById('fileCargarBorradorCam').click());
+document.getElementById('fileCargarBorradorCam').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const datos = JSON.parse(await file.text());
+    aplicarEstadoCamioneta(datos);
+    document.getElementById('avisoBorradorCam').textContent = `Borrador cargado: ${file.name}`;
+  } catch (err) {
+    document.getElementById('avisoBorradorCam').textContent = 'No se pudo leer el archivo: ' + err.message;
+  }
+  e.target.value = '';
+});
+document.getElementById('btnNuevaCam').addEventListener('click', () => {
+  if (!confirm('¿Borrar el borrador actual y empezar una solicitud nueva?')) return;
+  localStorage.removeItem(LS_KEY_CAMIONETA);
+  location.reload();
+});
+
+function obtenerEstadoFicha() {
+  const v = id => document.getElementById(id).value;
+  return {
+    subdireccion: v('tSubdireccion'), depto: v('tDepto'), unidad: v('tUnidad'), centroCosto: v('tCentroCosto'),
+    objetivo: v('tObjetivo'), equipoSatelital: v('tEquipoSatelital'), observacionesGral: v('tObservacionesGral'),
+    ciudadDestino: v('tCiudadDestino'), loc1: v('tLoc1'), loc2: v('tLoc2'), loc3: v('tLoc3'),
+    ref1: v('tRef1'), ref2: v('tRef2'), ref3: v('tRef3'),
+    vehCamioneta: v('tVehCamioneta'), vehCarro: v('tVehCarro'), vehOtro: v('tVehOtro'),
+    valorCombustible: v('tValorCombustible'), obsTransporte: v('tObsTransporte'), otrosTransporte: v('tOtrosTransporte'),
+    diasProf100: v('tDiasProf100'), diasProf40: v('tDiasProf40'), diasAdm100: v('tDiasAdm100'), diasAdm40: v('tDiasAdm40'),
+    imprevistos: v('tImprevistos'), lavado: v('tLavado'), peajes: v('tPeajes'), otroConcepto: v('tOtroConcepto'), otroMonto: v('tOtroMonto'),
+    riesgosIdent: v('tRiesgosIdent'), riesgosMedidas: v('tRiesgosMedidas'), riesgosPlanEmerg: v('tRiesgosPlanEmerg'),
+    fechaElab: v('tFechaElab'), elaboradoPor: v('tElaboradoPor'), fechaRev: v('tFechaRev'), revisadoPor: v('tRevisadoPor'),
+    diasInhabiles: v('tDiasInhabiles'),
+    participantes: recolectarParticipantes(),
+    actividades: recolectarActividades(),
+    epp: recolectarEpp(),
+  };
+}
+function aplicarEstadoFicha(e) {
+  if (!e) return;
+  const set = (id, val) => { if (val != null) document.getElementById(id).value = val; };
+  set('tSubdireccion', e.subdireccion); set('tDepto', e.depto); set('tUnidad', e.unidad); set('tCentroCosto', e.centroCosto);
+  set('tObjetivo', e.objetivo); set('tEquipoSatelital', e.equipoSatelital); set('tObservacionesGral', e.observacionesGral);
+  set('tCiudadDestino', e.ciudadDestino); set('tLoc1', e.loc1); set('tLoc2', e.loc2); set('tLoc3', e.loc3);
+  set('tRef1', e.ref1); set('tRef2', e.ref2); set('tRef3', e.ref3);
+  set('tVehCamioneta', e.vehCamioneta); set('tVehCarro', e.vehCarro); set('tVehOtro', e.vehOtro);
+  set('tValorCombustible', e.valorCombustible); set('tObsTransporte', e.obsTransporte); set('tOtrosTransporte', e.otrosTransporte);
+  set('tDiasProf100', e.diasProf100); set('tDiasProf40', e.diasProf40); set('tDiasAdm100', e.diasAdm100); set('tDiasAdm40', e.diasAdm40);
+  set('tImprevistos', e.imprevistos); set('tLavado', e.lavado); set('tPeajes', e.peajes); set('tOtroConcepto', e.otroConcepto); set('tOtroMonto', e.otroMonto);
+  set('tRiesgosIdent', e.riesgosIdent); set('tRiesgosMedidas', e.riesgosMedidas); set('tRiesgosPlanEmerg', e.riesgosPlanEmerg);
+  set('tFechaElab', e.fechaElab); set('tElaboradoPor', e.elaboradoPor); set('tFechaRev', e.fechaRev); set('tRevisadoPor', e.revisadoPor);
+  set('tDiasInhabiles', e.diasInhabiles);
+
+  contParticipantes.innerHTML = ''; numParticipantes = 0;
+  const parts = (e.participantes && e.participantes.length) ? e.participantes : [{}];
+  parts.forEach(p => {
+    agregarParticipante();
+    const div = contParticipantes.lastElementChild;
+    if (p.nombre) div.querySelector('.pNombre').value = p.nombre;
+    if (p.origen) div.querySelector('.pOrigen').value = p.origen;
+    if (p.rut) div.querySelector('.pRut').value = p.rut;
+    if (p.cel) div.querySelector('.pCel').value = p.cel;
+    if (p.telEmerg) div.querySelector('.pTelEmerg').value = p.telEmerg;
+    if (p.contactoEmerg) div.querySelector('.pContactoEmerg').value = p.contactoEmerg;
+    if (p.fSalida) div.querySelector('.pFSalida').value = p.fSalida;
+    if (p.fRegreso) div.querySelector('.pFRegreso').value = p.fRegreso;
+    if (p.traslado) div.querySelector('.pTraslado').value = p.traslado;
+    if (p.vueloIda) div.querySelector('.pVueloIda').value = p.vueloIda;
+    if (p.vueloRegreso) div.querySelector('.pVueloRegreso').value = p.vueloRegreso;
+    div.querySelector('.pExAltFis').checked = !!p.exAltFis;
+    div.querySelector('.pExAltGeo').checked = !!p.exAltGeo;
+    div.querySelector('.pExFrio').checked = !!p.exFrio;
+    div.querySelector('.pExCalor').checked = !!p.exCalor;
+    div.querySelector('.pExConfin').checked = !!p.exConfin;
+    div.querySelector('.pExCond').checked = !!p.exCond;
+  });
+
+  contActividades.innerHTML = ''; numActividades = 0;
+  (e.actividades || []).forEach(a => {
+    agregarActividad();
+    const div = contActividades.lastElementChild;
+    if (a.dias != null) div.querySelector('.aDias').value = a.dias;
+    if (a.desc) div.querySelector('.aDesc').value = a.desc;
+  });
+
+  contEpp.innerHTML = ''; numEpp = 0;
+  (e.epp || []).forEach(x => {
+    agregarEpp();
+    const div = contEpp.lastElementChild;
+    if (x.nombre) div.querySelector('.eNombre').value = x.nombre;
+    if (x.elemento) div.querySelector('.eElemento').value = x.elemento;
+    if (x.cantidad != null) div.querySelector('.eCantidad').value = x.cantidad;
+    if (x.estado) div.querySelector('.eEstado').value = x.estado;
+    if (x.obs) div.querySelector('.eObs').value = x.obs;
+  });
+
+  validarFicha();
+}
+const autoguardarFicha = debounce(() => guardarBorradorLS(LS_KEY_FICHA, obtenerEstadoFicha()), 400);
+
+document.getElementById('btnGuardarBorradorFicha').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(obtenerEstadoFicha(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Borrador ficha terreno ${hoyISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  document.getElementById('avisoBorradorFicha').textContent = 'Borrador descargado.';
+});
+document.getElementById('btnCargarBorradorFicha').addEventListener('click', () => document.getElementById('fileCargarBorradorFicha').click());
+document.getElementById('fileCargarBorradorFicha').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const datos = JSON.parse(await file.text());
+    aplicarEstadoFicha(datos);
+    document.getElementById('avisoBorradorFicha').textContent = `Borrador cargado: ${file.name}`;
+  } catch (err) {
+    document.getElementById('avisoBorradorFicha').textContent = 'No se pudo leer el archivo: ' + err.message;
+  }
+  e.target.value = '';
+});
+document.getElementById('btnNuevaFicha').addEventListener('click', () => {
+  if (!confirm('¿Borrar el borrador actual y empezar una ficha nueva?')) return;
+  localStorage.removeItem(LS_KEY_FICHA);
+  location.reload();
+});
+
+// ============================================================
 // Valores por defecto y arranque
 // ============================================================
 document.getElementById('fFechaSolicitud').value = formatearFechaDMY(hoyISO());
-document.getElementById('fCentroCosto').value = CENTRO_COSTO_DEFECTO;
-document.getElementById('fRegionInst').value = REGION_INST_DEFECTO;
-document.getElementById('fJefeCC').value = JEFE_CC_DEFECTO;
-document.getElementById('fJefePrograma').value = JEFE_PROGRAMA_DEFECTO;
-document.getElementById('fDepto').value = DEPTO_DEFECTO;
+const estadoGuardadoCamioneta = cargarBorradorLS(LS_KEY_CAMIONETA);
+if (estadoGuardadoCamioneta) {
+  aplicarEstadoCamioneta(estadoGuardadoCamioneta);
+  document.getElementById('avisoBorradorCam').textContent = 'Se restauró tu borrador anterior automáticamente.';
+} else {
+  document.getElementById('fCentroCosto').value = CENTRO_COSTO_DEFECTO;
+  document.getElementById('fRegionInst').value = REGION_INST_DEFECTO;
+  document.getElementById('fJefeCC').value = JEFE_CC_DEFECTO;
+  document.getElementById('fJefePrograma').value = JEFE_PROGRAMA_DEFECTO;
+  document.getElementById('fDepto').value = DEPTO_DEFECTO;
+}
 validarFormulario();
 
 document.getElementById('tSubdireccion').innerHTML = SUBDIRECCIONES.map(s => `<option>${escXml(s)}</option>`).join('');
-document.getElementById('tDepto').value = DEPTO_DEFECTO;
-document.getElementById('tCentroCosto').value = CENTRO_COSTO_DEFECTO;
-document.getElementById('tFechaElab').value = hoyISO();
-agregarParticipante();
+const estadoGuardadoFicha = cargarBorradorLS(LS_KEY_FICHA);
+if (estadoGuardadoFicha) {
+  aplicarEstadoFicha(estadoGuardadoFicha);
+  document.getElementById('avisoBorradorFicha').textContent = 'Se restauró tu borrador anterior automáticamente.';
+} else {
+  document.getElementById('tDepto').value = DEPTO_DEFECTO;
+  document.getElementById('tCentroCosto').value = CENTRO_COSTO_DEFECTO;
+  document.getElementById('tFechaElab').value = hoyISO();
+  agregarParticipante();
+}
 validarFicha();
 
 // ============================================================
