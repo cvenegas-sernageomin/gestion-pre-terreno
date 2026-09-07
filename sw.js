@@ -1,5 +1,5 @@
 // Service worker offline-first (cache estatico)
-const CACHE='solicitud-camioneta-v3';
+const CACHE='solicitud-camioneta-v4';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/jszip.min.js','./assets/plantilla_solicitud.xlsx','./assets/plantilla_ficha_terreno.xlsx'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});

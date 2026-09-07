@@ -106,6 +106,24 @@
   </div>
 
   <div class="card">
+    <h2>🔒 Mi nómina privada de conductores</h2>
+    <p class="nota">
+      Se guarda SOLO en este navegador (nunca se escribe en el código ni se sube a GitHub). Úsala
+      para no dejar RUT ni teléfonos de emergencia expuestos en la app pública. Si trabajas desde
+      otro equipo, cárgala de nuevo ahí con "Importar nómina" — guarda tú ese archivo en un lugar
+      privado (nunca en el repositorio).
+    </p>
+    <div id="filasNomina"></div>
+    <div class="fila-botones" style="margin-top:10px;">
+      <button class="btn secundario" id="btnAgregarNomina" type="button">+ Agregar conductor</button>
+      <button class="btn secundario" id="btnExportarNomina" type="button">📤 Exportar nómina (.json)</button>
+      <button class="btn secundario" id="btnImportarNomina" type="button">📥 Importar nómina (.json)</button>
+      <input type="file" id="fileImportarNomina" accept="application/json" style="display:none;">
+    </div>
+    <div class="aviso" id="avisoNomina"></div>
+  </div>
+
+  <div class="card">
     <h2>1. Datos generales</h2>
     <div class="grid2">
       <div>
@@ -445,6 +463,13 @@ const TARIFA_ADM_100 = 58501, TARIFA_ADM_40 = 23400;
 
 const MAX_PARTICIPANTES = 5, MAX_ACTIVIDADES = 8, MAX_EPP = 10;
 
+// Nómina privada (RUT, teléfonos de emergencia, patentes): SOLO en localStorage de este
+// navegador — nunca se escribe en este archivo ni se sube a GitHub.
+const LS_KEY_NOMINA = 'nomina_privada_v1';
+function cargarNominaLS() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY_NOMINA) || '[]'); } catch (e) { return []; }
+}
+
 // ============================================================
 // Pestañas
 // ============================================================
@@ -488,13 +513,21 @@ function formatearFechaDMY(iso) {
 const contFilas = document.getElementById('filasVehiculos');
 let numFilas = 0;
 
+function listaConductoresActiva() {
+  const nom = cargarNominaLS();
+  return nom.length ? nom.map(n => n.nombre) : CONDUCTORES;
+}
+function listaPatentesActiva() {
+  const nom = cargarNominaLS().filter(n => n.patente);
+  return nom.length ? nom.map(n => ({ patente: n.patente, vehiculo: n.vehiculo, origen: n.origen })) : PATENTES;
+}
 function poblarSelectConductor(sel) {
   sel.innerHTML = '<option value="">Elegir conductor…</option>' +
-    CONDUCTORES.map(c => `<option value="${escXml(c)}">${escXml(c)}</option>`).join('');
+    listaConductoresActiva().map(c => `<option value="${escXml(c)}">${escXml(c)}</option>`).join('');
 }
 function poblarSelectPatente(sel) {
   sel.innerHTML = '<option value="">Elegir patente…</option>' +
-    PATENTES.map(p => `<option value="${escXml(p.patente)}">${escXml(p.patente)} — ${escXml(p.vehiculo)}</option>`).join('');
+    listaPatentesActiva().map(p => `<option value="${escXml(p.patente)}">${escXml(p.patente)} — ${escXml(p.vehiculo)}</option>`).join('');
 }
 
 function agregarFila() {
@@ -527,10 +560,17 @@ function agregarFila() {
   poblarSelectPatente(div.querySelector('.fPatente'));
 
   div.querySelector('.fPatente').addEventListener('change', (e) => {
-    const p = PATENTES.find(x => x.patente === e.target.value);
+    const p = listaPatentesActiva().find(x => x.patente === e.target.value);
     if (p) div.querySelector('.fOrigen').value = p.origen;
     validarFormulario();
     revisarSolapes();
+  });
+  div.querySelector('.fConductor').addEventListener('change', (e) => {
+    const n = cargarNominaLS().find(x => x.nombre === e.target.value);
+    if (n && n.patente) {
+      div.querySelector('.fPatente').value = n.patente;
+      if (n.origen) div.querySelector('.fOrigen').value = n.origen;
+    }
   });
   div.querySelectorAll('input,select').forEach(el => el.addEventListener('input', validarFormulario));
   div.querySelectorAll('input,select').forEach(el => el.addEventListener('change', () => { validarFormulario(); revisarSolapes(); }));
@@ -846,6 +886,8 @@ function agregarParticipante() {
   div.innerHTML = `
     <span class="num">Participante ${idx}</span>
     ${idx > 1 ? '<button type="button" class="quitar">✕ quitar</button>' : ''}
+    <label>Cargar desde mi nómina privada (opcional)</label>
+    <select class="pNominaSel"><option value="">— elegir —</option></select>
     <label>Nombre completo</label>
     <input type="text" class="pNombre">
     <div class="grid2">
@@ -873,6 +915,18 @@ function agregarParticipante() {
     </div>
   `;
   contParticipantes.appendChild(div);
+  poblarSelectNominaParticipante(div.querySelector('.pNominaSel'));
+  div.querySelector('.pNominaSel').addEventListener('change', (e) => {
+    const n = cargarNominaLS().find(x => x.nombre === e.target.value);
+    if (!n) return;
+    div.querySelector('.pNombre').value = n.nombre;
+    div.querySelector('.pOrigen').value = n.origen || '';
+    div.querySelector('.pRut').value = n.rut || '';
+    div.querySelector('.pCel').value = n.celular || '';
+    div.querySelector('.pTelEmerg').value = n.telEmergencia || '';
+    div.querySelector('.pContactoEmerg').value = n.contactoEmergencia || '';
+    validarFicha();
+  });
   div.querySelectorAll('input,select').forEach(el => {
     el.addEventListener('input', validarFicha);
     el.addEventListener('change', validarFicha);
@@ -880,6 +934,11 @@ function agregarParticipante() {
   const btnQuitar = div.querySelector('.quitar');
   if (btnQuitar) btnQuitar.addEventListener('click', () => { div.remove(); renumerarParticipantes(); validarFicha(); });
   document.getElementById('btnAgregarParticipante').disabled = numParticipantes >= MAX_PARTICIPANTES;
+}
+function poblarSelectNominaParticipante(sel) {
+  const nom = cargarNominaLS();
+  sel.innerHTML = '<option value="">— elegir —</option>' +
+    nom.map(n => `<option value="${escXml(n.nombre)}">${escXml(n.nombre)}</option>`).join('');
 }
 function renumerarParticipantes() {
   numParticipantes = 0;
@@ -1444,6 +1503,117 @@ document.getElementById('btnNuevaFicha').addEventListener('click', () => {
   localStorage.removeItem(LS_KEY_FICHA);
   location.reload();
 });
+
+// ============================================================
+// Nómina privada de conductores (localStorage únicamente)
+// ============================================================
+const contNomina = document.getElementById('filasNomina');
+let numNomina = 0;
+
+function agregarFilaNomina(datos) {
+  numNomina++;
+  const idx = numNomina;
+  const div = document.createElement('div');
+  div.className = 'fila-vehiculo';
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <span class="num">Conductor ${idx}</span>
+    <button type="button" class="quitar">✕ quitar</button>
+    <div class="grid2">
+      <div><label>Nombre</label><input type="text" class="nNombre"></div>
+      <div><label>RUT</label><input type="text" class="nRut"></div>
+      <div><label>Celular</label><input type="text" class="nCelular"></div>
+      <div><label>Teléfono emergencia</label><input type="text" class="nTelEmerg"></div>
+      <div><label>Contacto emergencia</label><input type="text" class="nContactoEmerg"></div>
+      <div><label>Patente</label><input type="text" class="nPatente"></div>
+      <div><label>Vehículo</label><input type="text" class="nVehiculo"></div>
+      <div><label>Origen</label><input type="text" class="nOrigen"></div>
+    </div>
+  `;
+  contNomina.appendChild(div);
+  if (datos) {
+    div.querySelector('.nNombre').value = datos.nombre || '';
+    div.querySelector('.nRut').value = datos.rut || '';
+    div.querySelector('.nCelular').value = datos.celular || '';
+    div.querySelector('.nTelEmerg').value = datos.telEmergencia || '';
+    div.querySelector('.nContactoEmerg').value = datos.contactoEmergencia || '';
+    div.querySelector('.nPatente').value = datos.patente || '';
+    div.querySelector('.nVehiculo').value = datos.vehiculo || '';
+    div.querySelector('.nOrigen').value = datos.origen || '';
+  }
+  div.querySelectorAll('input').forEach(el => el.addEventListener('input', () => {
+    guardarNominaLS();
+    refrescarSelectsDesdeNomina();
+  }));
+  div.querySelector('.quitar').addEventListener('click', () => {
+    div.remove();
+    renumerarNomina();
+    guardarNominaLS();
+    refrescarSelectsDesdeNomina();
+  });
+}
+function renumerarNomina() {
+  numNomina = 0;
+  contNomina.querySelectorAll('.fila-vehiculo').forEach(div => {
+    numNomina++;
+    div.dataset.idx = numNomina;
+    div.querySelector('.num').textContent = `Conductor ${numNomina}`;
+  });
+}
+function recolectarNomina() {
+  return Array.from(contNomina.querySelectorAll('.fila-vehiculo')).map(div => ({
+    nombre: div.querySelector('.nNombre').value.trim(),
+    rut: div.querySelector('.nRut').value.trim(),
+    celular: div.querySelector('.nCelular').value.trim(),
+    telEmergencia: div.querySelector('.nTelEmerg').value.trim(),
+    contactoEmergencia: div.querySelector('.nContactoEmerg').value.trim(),
+    patente: div.querySelector('.nPatente').value.trim(),
+    vehiculo: div.querySelector('.nVehiculo').value.trim(),
+    origen: div.querySelector('.nOrigen').value.trim(),
+  })).filter(n => n.nombre);
+}
+function guardarNominaLS() {
+  try { localStorage.setItem(LS_KEY_NOMINA, JSON.stringify(recolectarNomina())); } catch (e) {}
+}
+function refrescarSelectsDesdeNomina() {
+  document.querySelectorAll('.fila-vehiculo .fConductor').forEach(sel => {
+    const val = sel.value; poblarSelectConductor(sel); sel.value = val;
+  });
+  document.querySelectorAll('.fila-vehiculo .fPatente').forEach(sel => {
+    const val = sel.value; poblarSelectPatente(sel); sel.value = val;
+  });
+  document.querySelectorAll('.fila-participante .pNominaSel').forEach(sel => poblarSelectNominaParticipante(sel));
+}
+
+document.getElementById('btnAgregarNomina').addEventListener('click', () => { agregarFilaNomina(); guardarNominaLS(); });
+document.getElementById('btnExportarNomina').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(recolectarNomina(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Nomina privada conductores ${hoyISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  document.getElementById('avisoNomina').textContent =
+    'Nómina exportada. Guárdala tú en un lugar privado — NO la subas al repositorio de GitHub.';
+});
+document.getElementById('btnImportarNomina').addEventListener('click', () => document.getElementById('fileImportarNomina').click());
+document.getElementById('fileImportarNomina').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const datos = JSON.parse(await file.text());
+    contNomina.innerHTML = ''; numNomina = 0;
+    (datos || []).forEach(n => agregarFilaNomina(n));
+    guardarNominaLS();
+    refrescarSelectsDesdeNomina();
+    document.getElementById('avisoNomina').textContent = `Nómina importada: ${file.name}`;
+  } catch (err) {
+    document.getElementById('avisoNomina').textContent = 'No se pudo leer el archivo: ' + err.message;
+  }
+  e.target.value = '';
+});
+
+cargarNominaLS().forEach(n => agregarFilaNomina(n));
 
 // ============================================================
 // Valores por defecto y arranque
