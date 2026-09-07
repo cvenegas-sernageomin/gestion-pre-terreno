@@ -594,7 +594,8 @@ function listaPatentesActiva() {
 }
 function poblarSelectConductor(sel) {
   sel.innerHTML = '<option value="">Elegir conductor…</option>' +
-    listaConductoresActiva().map(c => `<option value="${escXml(c)}">${escXml(c)}</option>`).join('');
+    listaConductoresActiva().map(c => `<option value="${escXml(c)}">${escXml(c)}</option>`).join('') +
+    '<option value="__manual__">✏️ Otro (ingresar manualmente)</option>';
 }
 function poblarSelectPatente(sel) {
   sel.innerHTML = '<option value="">Elegir patente…</option>' +
@@ -604,6 +605,22 @@ function poblarSelectPatente(sel) {
 function patenteEfectiva(div) {
   const sel = div.querySelector('.fPatente');
   return sel.value === '__manual__' ? div.querySelector('.fPatenteManual').value.trim() : sel.value;
+}
+function conductorEfectivo(div) {
+  const sel = div.querySelector('.fConductor');
+  return sel.value === '__manual__' ? div.querySelector('.fConductorManual').value.trim() : sel.value;
+}
+function restaurarSelectOManual(div, selCss, manualCss, valor) {
+  const sel = div.querySelector(selCss);
+  const opcionExiste = Array.from(sel.options).some(o => o.value === valor);
+  if (opcionExiste) {
+    sel.value = valor;
+  } else {
+    sel.value = '__manual__';
+    const manualInput = div.querySelector(manualCss);
+    manualInput.style.display = '';
+    manualInput.value = valor;
+  }
 }
 
 function agregarFila() {
@@ -622,6 +639,7 @@ function agregarFila() {
       <div>
         <label>Conductor</label>
         <select class="fConductor"></select>
+        <input type="text" class="fConductorManual" placeholder="Escribe el nombre del conductor" style="display:none;margin-top:6px;">
       </div>
       <div>
         <label>Patente</label>
@@ -651,6 +669,14 @@ function agregarFila() {
     revisarSolapes();
   });
   div.querySelector('.fConductor').addEventListener('change', (e) => {
+    const manualInput = div.querySelector('.fConductorManual');
+    if (e.target.value === '__manual__') {
+      manualInput.style.display = '';
+      manualInput.focus();
+      return;
+    }
+    manualInput.style.display = 'none';
+    manualInput.value = '';
     const n = cargarNominaLS().find(x => x.nombre === e.target.value);
     if (n && n.patente) {
       div.querySelector('.fPatente').value = n.patente;
@@ -684,7 +710,7 @@ agregarFila(); // primera fila siempre presente
 function recolectarFilas() {
   return Array.from(contFilas.querySelectorAll('.fila-vehiculo')).map(div => ({
     profesional: div.querySelector('.fProfesional').value.trim(),
-    conductor: div.querySelector('.fConductor').value,
+    conductor: conductorEfectivo(div),
     patente: patenteEfectiva(div),
     origen: div.querySelector('.fOrigen').value.trim(),
   }));
@@ -1443,19 +1469,8 @@ function aplicarEstadoCamioneta(e) {
     agregarFila();
     const div = contFilas.lastElementChild;
     if (f.profesional) div.querySelector('.fProfesional').value = f.profesional;
-    if (f.conductor) div.querySelector('.fConductor').value = f.conductor;
-    if (f.patente) {
-      const sel = div.querySelector('.fPatente');
-      const opcionExiste = Array.from(sel.options).some(o => o.value === f.patente);
-      if (opcionExiste) {
-        sel.value = f.patente;
-      } else {
-        sel.value = '__manual__';
-        const manualInput = div.querySelector('.fPatenteManual');
-        manualInput.style.display = '';
-        manualInput.value = f.patente;
-      }
-    }
+    if (f.conductor) restaurarSelectOManual(div, '.fConductor', '.fConductorManual', f.conductor);
+    if (f.patente) restaurarSelectOManual(div, '.fPatente', '.fPatenteManual', f.patente);
     if (f.origen) div.querySelector('.fOrigen').value = f.origen;
   });
   validarFormulario();
