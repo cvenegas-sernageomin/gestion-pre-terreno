@@ -179,6 +179,13 @@
     </div>
     <label for="fPermisoCirc">Fecha permiso de circulación (si aplica)</label>
     <input type="text" id="fPermisoCirc" placeholder="Ej: 22-23-29-30 noviembre, o «NO»">
+    <div class="fila-botones" style="margin-top:6px;">
+      <button class="btn secundario" id="btnRecalcularPermiso" type="button">🔄 Recalcular automáticamente (fines de semana y feriados)</button>
+    </div>
+    <p class="nota">Se autocompleta solo al elegir las fechas de inicio/término, tomando los fines
+      de semana y feriados chilenos que caen dentro del cometido. Puedes editarlo a mano después
+      (por ejemplo si el permiso solo cubre algunas de esas fechas) — el botón lo vuelve a calcular
+      si quieres descartar tus cambios.</p>
   </div>
 
   <div class="card">
@@ -450,6 +457,34 @@ const PATENTES = [
 
 const MAX_FILAS = 4; // filas disponibles en la plantilla oficial
 
+// Feriados nacionales de Chile (fijos + movibles ya confirmados oficialmente para 2026).
+// TODO usuario: agregar los feriados de años siguientes cuando el Gobierno los publique
+// (los movibles — Semana Santa, San Pedro y San Pablo, Pueblos Indígenas, Encuentro de Dos
+// Mundos, Iglesias Evangélicas — cambian cada año). Verificar contra feriados.gob.cl.
+const FERIADOS_CHILE = [
+  '2026-01-01', // Año Nuevo
+  '2026-04-03', // Viernes Santo
+  '2026-04-04', // Sábado Santo
+  '2026-05-01', // Día del Trabajo
+  '2026-05-21', // Glorias Navales
+  '2026-06-21', // Día Nacional de los Pueblos Indígenas
+  '2026-06-29', // San Pedro y San Pablo
+  '2026-07-16', // Virgen del Carmen
+  '2026-08-15', // Asunción de la Virgen
+  '2026-09-18', // Independencia Nacional
+  '2026-09-19', // Glorias del Ejército
+  '2026-10-12', // Encuentro de Dos Mundos
+  '2026-10-31', // Iglesias Evangélicas y Protestantes
+  '2026-11-01', // Todos los Santos
+  '2026-12-08', // Inmaculada Concepción
+  '2026-12-25', // Navidad
+  // 2027 — solo los de fecha fija; los movibles hay que agregarlos cuando se publiquen.
+  '2027-01-01', '2027-05-01', '2027-05-21', '2027-07-16', '2027-08-15',
+  '2027-09-18', '2027-09-19', '2027-12-08', '2027-12-25',
+];
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+  'septiembre','octubre','noviembre','diciembre'];
+
 // TODO usuario: correo real de quien revisa/aprueba la Ficha de Terreno (jefe de departamento / RRHH).
 const DESTINATARIO_FICHA_EMAIL = 'jefe.departamento@sernageomin.cl';
 
@@ -508,6 +543,42 @@ function formatearFechaDMY(iso) {
 }
 
 // ============================================================
+// Permiso de circulación — autocompletar con fines de semana y feriados
+// ============================================================
+function diasEnRango(inicioISO, terminoISO) {
+  const dias = [];
+  const d = new Date(inicioISO + 'T00:00:00');
+  const fin = new Date(terminoISO + 'T00:00:00');
+  while (d <= fin) {
+    dias.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return dias;
+}
+function esFinDeSemanaOFeriado(fecha) {
+  const diaSemana = fecha.getDay(); // 0=domingo, 6=sábado
+  if (diaSemana === 0 || diaSemana === 6) return true;
+  const iso = `${fecha.getFullYear()}-${String(fecha.getMonth()+1).padStart(2,'0')}-${String(fecha.getDate()).padStart(2,'0')}`;
+  return FERIADOS_CHILE.includes(iso);
+}
+function calcularPermisoCirculacion(inicioISO, terminoISO) {
+  if (!inicioISO || !terminoISO || terminoISO < inicioISO) return '';
+  const dias = diasEnRango(inicioISO, terminoISO).filter(esFinDeSemanaOFeriado);
+  if (dias.length === 0) return 'No (sin fines de semana ni feriados en el rango del cometido)';
+  const porMes = {};
+  dias.forEach(f => { (porMes[f.getMonth()] = porMes[f.getMonth()] || []).push(f.getDate()); });
+  return Object.keys(porMes).sort((a, b) => a - b)
+    .map(mes => `${porMes[mes].join('-')} de ${MESES_ES[mes]}`).join('; ');
+}
+function autocompletarPermisoCirculacion() {
+  const fi = document.getElementById('fFechaInicio').value;
+  const ft = document.getElementById('fFechaTermino').value;
+  document.getElementById('fPermisoCirc').value = calcularPermisoCirculacion(fi, ft);
+  validarFormulario();
+}
+document.getElementById('btnRecalcularPermiso').addEventListener('click', autocompletarPermisoCirculacion);
+
+// ============================================================
 // Filas dinámicas de profesional/conductor/patente
 // ============================================================
 const contFilas = document.getElementById('filasVehiculos');
@@ -527,7 +598,12 @@ function poblarSelectConductor(sel) {
 }
 function poblarSelectPatente(sel) {
   sel.innerHTML = '<option value="">Elegir patente…</option>' +
-    listaPatentesActiva().map(p => `<option value="${escXml(p.patente)}">${escXml(p.patente)} — ${escXml(p.vehiculo)}</option>`).join('');
+    listaPatentesActiva().map(p => `<option value="${escXml(p.patente)}">${escXml(p.patente)} — ${escXml(p.vehiculo)}</option>`).join('') +
+    '<option value="__manual__">✏️ Otra (ingresar manualmente)</option>';
+}
+function patenteEfectiva(div) {
+  const sel = div.querySelector('.fPatente');
+  return sel.value === '__manual__' ? div.querySelector('.fPatenteManual').value.trim() : sel.value;
 }
 
 function agregarFila() {
@@ -550,6 +626,7 @@ function agregarFila() {
       <div>
         <label>Patente</label>
         <select class="fPatente"></select>
+        <input type="text" class="fPatenteManual" placeholder="Escribe la patente" style="display:none;margin-top:6px;">
       </div>
     </div>
     <label>Origen de la camioneta</label>
@@ -560,8 +637,16 @@ function agregarFila() {
   poblarSelectPatente(div.querySelector('.fPatente'));
 
   div.querySelector('.fPatente').addEventListener('change', (e) => {
-    const p = listaPatentesActiva().find(x => x.patente === e.target.value);
-    if (p) div.querySelector('.fOrigen').value = p.origen;
+    const manualInput = div.querySelector('.fPatenteManual');
+    if (e.target.value === '__manual__') {
+      manualInput.style.display = '';
+      manualInput.focus();
+    } else {
+      manualInput.style.display = 'none';
+      manualInput.value = '';
+      const p = listaPatentesActiva().find(x => x.patente === e.target.value);
+      if (p) div.querySelector('.fOrigen').value = p.origen;
+    }
     validarFormulario();
     revisarSolapes();
   });
@@ -600,7 +685,7 @@ function recolectarFilas() {
   return Array.from(contFilas.querySelectorAll('.fila-vehiculo')).map(div => ({
     profesional: div.querySelector('.fProfesional').value.trim(),
     conductor: div.querySelector('.fConductor').value,
-    patente: div.querySelector('.fPatente').value,
+    patente: patenteEfectiva(div),
     origen: div.querySelector('.fOrigen').value.trim(),
   }));
 }
@@ -661,8 +746,8 @@ function validarFormulario() {
   el.addEventListener('input', validarFormulario);
   el.addEventListener('change', validarFormulario);
 });
-document.getElementById('fFechaInicio').addEventListener('change', revisarSolapes);
-document.getElementById('fFechaTermino').addEventListener('change', revisarSolapes);
+document.getElementById('fFechaInicio').addEventListener('change', () => { revisarSolapes(); autocompletarPermisoCirculacion(); });
+document.getElementById('fFechaTermino').addEventListener('change', () => { revisarSolapes(); autocompletarPermisoCirculacion(); });
 
 // ============================================================
 // Generación del .xlsx oficial (plantilla + tokens, vía JSZip)
@@ -1359,7 +1444,18 @@ function aplicarEstadoCamioneta(e) {
     const div = contFilas.lastElementChild;
     if (f.profesional) div.querySelector('.fProfesional').value = f.profesional;
     if (f.conductor) div.querySelector('.fConductor').value = f.conductor;
-    if (f.patente) div.querySelector('.fPatente').value = f.patente;
+    if (f.patente) {
+      const sel = div.querySelector('.fPatente');
+      const opcionExiste = Array.from(sel.options).some(o => o.value === f.patente);
+      if (opcionExiste) {
+        sel.value = f.patente;
+      } else {
+        sel.value = '__manual__';
+        const manualInput = div.querySelector('.fPatenteManual');
+        manualInput.style.display = '';
+        manualInput.value = f.patente;
+      }
+    }
     if (f.origen) div.querySelector('.fOrigen').value = f.origen;
   });
   validarFormulario();
